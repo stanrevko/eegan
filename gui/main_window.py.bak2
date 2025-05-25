@@ -236,9 +236,6 @@ class MainWindow(QMainWindow):
         
         self.main_splitter.addWidget(analysis_widget)
         
-        # Ensure analysis panels are visible
-        self.eeg_panel.show()
-        self.analysis_panel.show()        
     def setup_shortcuts(self):
         """Setup keyboard shortcuts"""
         # Toggle sidebar

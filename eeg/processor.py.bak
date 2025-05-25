@@ -80,10 +80,7 @@ class EEGProcessor:
             if stop_time is not None:
                 stop_sample = int(stop_time * self.raw.info['sfreq'])
             
-            if start_sample is not None or stop_sample is not None:
-                data, times = self.raw.get_data(start=start_sample, stop=stop_sample, return_times=True)
-            else:
-                data, times = self.raw.get_data(return_times=True)
+            data, times = self.raw.get_data(start=start_sample, stop=stop_sample, return_times=True)
             
             return data, times
             
@@ -115,10 +112,7 @@ class EEGProcessor:
             if stop_time is not None:
                 stop_sample = int(stop_time * self.original_raw.info['sfreq'])
             
-            if start_sample is not None or stop_sample is not None:
-                data, times = self.original_raw.get_data(start=start_sample, stop=stop_sample, return_times=True)
-            else:
-                data, times = self.original_raw.get_data(return_times=True)
+            data, times = self.original_raw.get_data(start=start_sample, stop=stop_sample, return_times=True)
             
             return data, times
             

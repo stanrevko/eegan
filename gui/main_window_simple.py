@@ -169,11 +169,6 @@ class MainWindow(QMainWindow):
         self.progress_bar.setVisible(False)
         self.statusBar().addPermanentWidget(self.progress_bar)
         
-        # Force widget visibility
-        if hasattr(self, "eeg_panel"):
-            self.eeg_panel.show()
-        if hasattr(self, "analysis_panel"):
-            self.analysis_panel.show()        
     def create_toolbar(self):
         """Create toolbar with sidebar toggle"""
         toolbar = self.addToolBar("Main")
@@ -236,9 +231,6 @@ class MainWindow(QMainWindow):
         
         self.main_splitter.addWidget(analysis_widget)
         
-        # Ensure analysis panels are visible
-        self.eeg_panel.show()
-        self.analysis_panel.show()        
     def setup_shortcuts(self):
         """Setup keyboard shortcuts"""
         # Toggle sidebar
