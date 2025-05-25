@@ -1,27 +1,32 @@
 """
-Main Window for EEG Analysis Application
-Fixed plot axes - Zero point anchored, EEG scrollable
+Enhanced Main Window - Fixed sidebar toggle
+Modular EEG analysis application with persistent sidebar toggle
 """
 
 import sys
 import os
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QHBoxLayout, QVBoxLayout, 
-                             QWidget, QListWidget, QListWidgetItem, QPushButton, 
-                             QLabel, QComboBox, QSplitter, QMessageBox, QProgressBar,
-                             QSlider, QSpinBox)
-from PyQt5.QtCore import Qt, QThread, pyqtSignal
-import pyqtgraph as pg
-import numpy as np
+                             QWidget, QSplitter, QMessageBox, QProgressBar, QToolBar)
+from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer
+from PyQt5.QtGui import QKeySequence
+from PyQt5.QtWidgets import QShortcut, QAction
 
 # Add project root to path
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
 from eeg.loader import EEGLoader
 from eeg.processor import EEGProcessor
 from eeg.analyzer import EEGAnalyzer
+from utils.settings import AppSettings
+from utils.ui_helpers import create_styled_button, create_collapsible_button
+from gui.file_panel import FilePanel
+from gui.eeg_timeline_panel import EEGTimelinePanel
+from gui.analysis_panel import AnalysisPanel
+from gui.spectrum_panel import SpectrumPanel
 
 
 class EEGLoadThread(QThread):
-    """Thread for loading EEG files without blocking GUI"""
+    """Background thread for loading and processing EEG files"""
     finished = pyqtSignal(bool, str)
     progress = pyqtSignal(str)
     
@@ -31,16 +36,16 @@ class EEGLoadThread(QThread):
         
     def run(self):
         try:
-            self.progress.emit("Loading EEG file...")
+            self.progress.emit("🔄 Loading EEG file...")
             loader = EEGLoader()
             
             if loader.load_edf(self.file_path):
-                self.progress.emit("Applying 0.1-40Hz filter...")
+                self.progress.emit("🔧 Applying 0.1-40Hz filter...")
                 processor = EEGProcessor()
                 processor.set_raw_data(loader.raw)
                 processor.apply_bandpass_filter(l_freq=0.1, h_freq=40.0)
                 
-                self.progress.emit("Calculating alpha power and spectrum...")
+                self.progress.emit("⚡ Calculating frequency analysis...")
                 analyzer = EEGAnalyzer()
                 analyzer.set_processor(processor)
                 
@@ -48,27 +53,40 @@ class EEGLoadThread(QThread):
                 self.loader = loader
                 self.processor = processor
                 self.analyzer = analyzer
-                self.finished.emit(True, "Complete analysis ready!")
+                self.finished.emit(True, "✅ Complete analysis ready!")
             else:
-                self.finished.emit(False, "Failed to load file")
+                self.finished.emit(False, "❌ Failed to load file")
                 
         except Exception as e:
-            self.finished.emit(False, f"Error: {str(e)}")
+            self.finished.emit(False, f"❌ Error: {str(e)}")
 
 
 class MainWindow(QMainWindow):
+    """Enhanced main window with fixed sidebar toggle"""
+    
     def __init__(self):
         super().__init__()
+        
+        # Initialize core components
+        self.settings = AppSettings()
         self.loader = None
         self.processor = None
         self.analyzer = None
-        self.current_time_start = 0  # For EEG scrolling
-        self.time_window = 10  # Default 10-second window
         
-        self.setWindowTitle("🧠 EEG Analysis - Fixed Axes & Scrollable Timeline")
-        self.setGeometry(50, 50, 1600, 1000)
+        # UI state
+        self.sidebar_visible = self.settings.get('sidebar_visible', True)
         
-        # Set dark mode styles
+        self.init_ui()
+        self.create_toolbar()
+        self.setup_shortcuts()
+        self.restore_window_state()
+        
+    def init_ui(self):
+        """Initialize the enhanced user interface"""
+        # Window setup
+        self.setWindowTitle("🧠 EEG Analysis Suite - Enhanced & Modular")
+        
+        # Apply dark theme
         self.setStyleSheet("""
             QMainWindow {
                 background-color: #2b2b2b;
@@ -78,469 +96,329 @@ class MainWindow(QMainWindow):
                 background-color: #2b2b2b;
                 color: #ffffff;
             }
-            QLabel {
-                color: #ffffff;
-                background-color: transparent;
+            QSplitter::handle {
+                background-color: #555555;
             }
-            QListWidget {
+            QSplitter::handle:horizontal {
+                width: 3px;
+            }
+            QSplitter::handle:vertical {
+                height: 3px;
+            }
+            QToolBar {
                 background-color: #3c3c3c;
-                color: #ffffff;
                 border: 1px solid #555555;
-                selection-background-color: #0078d4;
+                spacing: 10px;
+                padding: 5px;
             }
-            QComboBox, QSpinBox {
-                background-color: #3c3c3c;
-                color: #ffffff;
-                border: 1px solid #555555;
-                padding: 4px;
-            }
-            QSlider::groove:horizontal {
-                border: 1px solid #555555;
-                height: 8px;
-                background: #3c3c3c;
-                border-radius: 4px;
-            }
-            QSlider::handle:horizontal {
-                background: #0078d4;
-                border: 1px solid #0078d4;
-                width: 18px;
-                border-radius: 9px;
-                margin-top: -5px;
-                margin-bottom: -5px;
-            }
-            QPushButton {
+            QToolBar QToolButton {
                 background-color: #0078d4;
                 color: #ffffff;
                 border: none;
-                padding: 12px;
+                padding: 8px 12px;
                 font-weight: bold;
                 border-radius: 4px;
+                min-width: 80px;
             }
-            QPushButton:hover {
+            QToolBar QToolButton:hover {
                 background-color: #106ebe;
+            }
+            QToolBar QToolButton:pressed {
+                background-color: #005a9e;
+            }
+            QToolBar QToolButton:checked {
+                background-color: #005a9e;
             }
         """)
         
-        self.init_ui()
-        self.load_file_list()
-        
-    def init_ui(self):
-        """Initialize the UI with fixed axes"""
+        # Central widget
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         
+        # Main layout
         main_layout = QHBoxLayout(central_widget)
-        main_splitter = QSplitter(Qt.Horizontal)
-        main_layout.addWidget(main_splitter)
+        main_layout.setContentsMargins(5, 5, 5, 5)
         
-        # Left: File browser with controls
-        self.create_file_panel(main_splitter)
+        # Create main splitter
+        self.main_splitter = QSplitter(Qt.Horizontal)
+        main_layout.addWidget(self.main_splitter)
         
-        # Right: 3-panel analysis area
-        self.create_analysis_area(main_splitter)
+        # Create panels
+        self.create_sidebar()
+        self.create_analysis_area()
         
-        main_splitter.setSizes([300, 1200])
-        self.statusBar().showMessage("🧠 Ready - Load an EEG file for scrollable timeline analysis")
+        # Setup splitter proportions
+        self.main_splitter.setSizes([300, 1300])
         
-    def create_file_panel(self, parent):
-        """Create file browser and controls"""
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
+        # Status bar
+        self.statusBar().setStyleSheet("background-color: #2b2b2b; color: #ffffff;")
+        self.statusBar().showMessage("🧠 Enhanced EEG Analysis Suite - Ready for auto-loading files")
         
-        # Title
-        title = QLabel("📁 EEG Files")
-        title.setStyleSheet("font-weight: bold; font-size: 14px; padding: 10px; color: #ffffff;")
-        layout.addWidget(title)
-        
-        # File list
-        self.file_list = QListWidget()
-        self.file_list.itemClicked.connect(self.on_file_selected)
-        layout.addWidget(self.file_list)
-        
-        # Filter info
-        filter_info = QLabel("🔧 Filter: 0.1Hz - 40Hz")
-        filter_info.setStyleSheet("background: #1e3a1e; padding: 8px; border-radius: 4px; color: #4caf50; border: 1px solid #4caf50;")
-        layout.addWidget(filter_info)
-        
-        # Alpha info
-        alpha_info = QLabel("⚡ Alpha: 8-13Hz (2s windows)")
-        alpha_info.setStyleSheet("background: #2e1e0f; padding: 8px; border-radius: 4px; color: #ff9800; border: 1px solid #ff9800;")
-        layout.addWidget(alpha_info)
-        
-        # Time window control
-        layout.addWidget(QLabel("EEG Window (seconds):"))
-        self.time_window_spin = QSpinBox()
-        self.time_window_spin.setRange(5, 60)
-        self.time_window_spin.setValue(10)
-        self.time_window_spin.valueChanged.connect(self.on_time_window_changed)
-        layout.addWidget(self.time_window_spin)
-        
-        # Timeline scroll
-        layout.addWidget(QLabel("Timeline Position:"))
-        self.timeline_slider = QSlider(Qt.Horizontal)
-        self.timeline_slider.setRange(0, 100)
-        self.timeline_slider.setValue(0)
-        self.timeline_slider.valueChanged.connect(self.on_timeline_changed)
-        self.timeline_slider.setEnabled(False)
-        layout.addWidget(self.timeline_slider)
-        
-        self.timeline_label = QLabel("0.0s / 0.0s")
-        self.timeline_label.setStyleSheet("color: #cccccc; font-size: 11px;")
-        layout.addWidget(self.timeline_label)
-        
-        # Channel selection
-        layout.addWidget(QLabel("Analysis Channel:"))
-        self.channel_combo = QComboBox()
-        self.channel_combo.currentIndexChanged.connect(self.update_analysis_plots)
-        layout.addWidget(self.channel_combo)
-        
-        # Load button
-        self.load_button = QPushButton("📂 Load & Analyze File")
-        self.load_button.clicked.connect(self.load_selected_file)
-        layout.addWidget(self.load_button)
-        
-        # Progress bar
+        # Progress bar (initially hidden)
         self.progress_bar = QProgressBar()
+        self.progress_bar.setStyleSheet("""
+            QProgressBar {
+                border: 1px solid #555555;
+                background-color: #3c3c3c;
+                color: #ffffff;
+                text-align: center;
+            }
+            QProgressBar::chunk {
+                background-color: #0078d4;
+            }
+        """)
         self.progress_bar.setVisible(False)
-        layout.addWidget(self.progress_bar)
+        self.statusBar().addPermanentWidget(self.progress_bar)
         
-        parent.addWidget(widget)
+    def create_toolbar(self):
+        """Create toolbar with sidebar toggle"""
+        toolbar = self.addToolBar("Main")
+        toolbar.setMovable(False)
         
-    def create_analysis_area(self, parent):
-        """Create the 3-panel analysis area with fixed axes"""
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
+        # Sidebar toggle action
+        self.sidebar_action = QAction("📁 Hide Sidebar", self)
+        self.sidebar_action.setCheckable(True)
+        self.sidebar_action.setChecked(not self.sidebar_visible)
+        self.sidebar_action.triggered.connect(self.toggle_sidebar_action)
+        toolbar.addAction(self.sidebar_action)
         
-        # Vertical splitter
-        v_splitter = QSplitter(Qt.Vertical)
-        layout.addWidget(v_splitter)
+        # Add separator
+        toolbar.addSeparator()
         
-        # TOP PANEL: EEG Signal Display (Scrollable)
-        eeg_widget = QWidget()
-        eeg_layout = QVBoxLayout(eeg_widget)
+        # File info action
+        self.file_info_action = QAction("📄 No file loaded", self)
+        self.file_info_action.setEnabled(False)
+        toolbar.addAction(self.file_info_action)
         
-        eeg_title = QLabel("🧠 EEG Signal Visualization (Scrollable Timeline)")
-        eeg_title.setStyleSheet("font-weight: bold; font-size: 14px; padding: 10px; background: #1e1e2e; border-radius: 4px; color: #ffffff; border: 1px solid #444444;")
-        eeg_layout.addWidget(eeg_title)
+        # Update sidebar toggle text
+        self.update_sidebar_action_text()
         
-        # EEG plot with fixed axes
-        self.eeg_plot = pg.PlotWidget(background='#2b2b2b')
-        self.eeg_plot.setLabel('bottom', 'Time (seconds)', color='white', size='12pt')
-        self.eeg_plot.setLabel('left', 'Channels', color='white', size='12pt')
-        self.eeg_plot.showGrid(True, True, 0.3)
+    def create_sidebar(self):
+        """Create collapsible sidebar with file panel"""
+        # File panel
+        self.file_panel = FilePanel(self.settings)
+        self.file_panel.file_selected.connect(self.auto_load_file)
+        self.file_panel.folder_changed.connect(self.on_folder_changed)
         
-        # Configure axes to prevent negative values
-        self.eeg_plot.setLimits(xMin=0, yMin=0)  # Prevent scrolling below 0,0
-        self.eeg_plot.getViewBox().setRange(xRange=[0, 10], yRange=[0, 25], padding=0)
+        self.sidebar_widget = self.file_panel
+        self.main_splitter.addWidget(self.file_panel)
         
-        # Style axes
-        self.eeg_plot.getAxis('bottom').setPen(color='white')
-        self.eeg_plot.getAxis('left').setPen(color='white')
-        self.eeg_plot.getAxis('bottom').setTextPen(color='white')
-        self.eeg_plot.getAxis('left').setTextPen(color='white')
-        eeg_layout.addWidget(self.eeg_plot)
+        # Set initial visibility
+        self.file_panel.setVisible(self.sidebar_visible)
         
-        self.eeg_info = QLabel("Load an EEG file to view scrollable multi-channel signals")
-        self.eeg_info.setStyleSheet("padding: 8px; background: #3c3c3c; border-radius: 4px; color: #cccccc; border: 1px solid #555555;")
-        eeg_layout.addWidget(self.eeg_info)
+    def create_analysis_area(self):
+        """Create the main analysis area with 3 panels"""
+        analysis_widget = QWidget()
+        analysis_layout = QVBoxLayout(analysis_widget)
+        analysis_layout.setContentsMargins(0, 0, 0, 0)
         
-        v_splitter.addWidget(eeg_widget)
+        # Vertical splitter for main analysis area
+        self.analysis_splitter = QSplitter(Qt.Vertical)
+        analysis_layout.addWidget(self.analysis_splitter)
         
-        # BOTTOM AREA: Alpha + Spectrum
+        # TOP: EEG Timeline Panel (with embedded controls)
+        self.eeg_panel = EEGTimelinePanel()
+        self.eeg_panel.timeline_changed.connect(self.on_timeline_changed)
+        self.eeg_panel.channel_visibility_changed.connect(self.on_channel_visibility_changed)
+        self.analysis_splitter.addWidget(self.eeg_panel)
+        
+        # BOTTOM: Analysis panels (horizontal split)
         bottom_widget = QWidget()
         bottom_layout = QHBoxLayout(bottom_widget)
         bottom_layout.setContentsMargins(0, 0, 0, 0)
         
-        h_splitter = QSplitter(Qt.Horizontal)
-        bottom_layout.addWidget(h_splitter)
+        self.bottom_splitter = QSplitter(Qt.Horizontal)
+        bottom_layout.addWidget(self.bottom_splitter)
         
-        # BOTTOM-LEFT: Alpha Power (Fixed axes)
-        alpha_widget = QWidget()
-        alpha_layout = QVBoxLayout(alpha_widget)
+        # LEFT: Configurable frequency band analysis
+        self.analysis_panel = AnalysisPanel()
+        self.analysis_panel.band_changed.connect(self.on_frequency_band_changed)
+        self.bottom_splitter.addWidget(self.analysis_panel)
         
-        alpha_title = QLabel("⚡ Alpha Power (8-13Hz)")
-        alpha_title.setStyleSheet("font-weight: bold; font-size: 14px; padding: 10px; background: #2e1e0f; border-radius: 4px; color: #ff9800; border: 1px solid #ff9800;")
-        alpha_layout.addWidget(alpha_title)
+        # RIGHT: Spectrum analysis
+        self.spectrum_panel = SpectrumPanel()
+        self.bottom_splitter.addWidget(self.spectrum_panel)
         
-        self.alpha_plot = pg.PlotWidget(background='#2b2b2b')
-        self.alpha_plot.setLabel('bottom', 'Time (seconds)', color='white', size='12pt')
-        self.alpha_plot.setLabel('left', 'Alpha Power (μV²)', color='white', size='12pt')
-        self.alpha_plot.showGrid(True, True, 0.3)
+        # Set bottom splitter proportions
+        self.bottom_splitter.setSizes([600, 600])
         
-        # Fix alpha plot axes - no negative values
-        self.alpha_plot.setLimits(xMin=0, yMin=0)
+        self.analysis_splitter.addWidget(bottom_widget)
         
-        # Style axes
-        self.alpha_plot.getAxis('bottom').setPen(color='white')
-        self.alpha_plot.getAxis('left').setPen(color='white')
-        self.alpha_plot.getAxis('bottom').setTextPen(color='white')
-        self.alpha_plot.getAxis('left').setTextPen(color='white')
-        alpha_layout.addWidget(self.alpha_plot)
+        # Set vertical splitter proportions
+        self.analysis_splitter.setSizes([600, 400])
         
-        self.alpha_info = QLabel("Window: 2s, Overlap: 0.5s")
-        self.alpha_info.setStyleSheet("padding: 8px; background: #3c3c3c; border-radius: 4px; font-size: 12px; color: #cccccc; border: 1px solid #555555;")
-        alpha_layout.addWidget(self.alpha_info)
+        self.main_splitter.addWidget(analysis_widget)
         
-        h_splitter.addWidget(alpha_widget)
+    def setup_shortcuts(self):
+        """Setup keyboard shortcuts"""
+        # Toggle sidebar
+        toggle_shortcut = QShortcut(QKeySequence("Ctrl+B"), self)
+        toggle_shortcut.activated.connect(self.toggle_sidebar_shortcut)
         
-        # BOTTOM-RIGHT: Frequency Spectrum (Fixed axes)
-        spectrum_widget = QWidget()
-        spectrum_layout = QVBoxLayout(spectrum_widget)
+        # Refresh file list
+        refresh_shortcut = QShortcut(QKeySequence("F5"), self)
+        refresh_shortcut.activated.connect(self.file_panel.refresh_file_list)
         
-        spectrum_title = QLabel("📊 Power Spectrum")
-        spectrum_title.setStyleSheet("font-weight: bold; font-size: 14px; padding: 10px; background: #1e2a3a; border-radius: 4px; color: #2196f3; border: 1px solid #2196f3;")
-        spectrum_layout.addWidget(spectrum_title)
+    def toggle_sidebar_action(self, checked):
+        """Toggle sidebar via toolbar action"""
+        self.sidebar_visible = not checked
+        self.file_panel.setVisible(self.sidebar_visible)
+        self.settings.set('sidebar_visible', self.sidebar_visible)
         
-        self.spectrum_plot = pg.PlotWidget(background='#2b2b2b')
-        self.spectrum_plot.setLabel('bottom', 'Frequency (Hz)', color='white', size='12pt')
-        self.spectrum_plot.setLabel('left', 'Power (μV²)', color='white', size='12pt')
-        self.spectrum_plot.setLogMode(False, True)
-        self.spectrum_plot.showGrid(True, True, 0.3)
+        # Update splitter sizes
+        if self.sidebar_visible:
+            self.main_splitter.setSizes([300, 1300])
+        else:
+            self.main_splitter.setSizes([0, 1600])
+            
+        self.update_sidebar_action_text()
         
-        # Fix spectrum plot axes - no negative values
-        self.spectrum_plot.setLimits(xMin=0, yMin=0.001)  # Min power = 0.001 for log scale
+    def toggle_sidebar_shortcut(self):
+        """Toggle sidebar via keyboard shortcut"""
+        self.sidebar_action.setChecked(not self.sidebar_action.isChecked())
+        self.toggle_sidebar_action(self.sidebar_action.isChecked())
         
-        # Style axes
-        self.spectrum_plot.getAxis('bottom').setPen(color='white')
-        self.spectrum_plot.getAxis('left').setPen(color='white')
-        self.spectrum_plot.getAxis('bottom').setTextPen(color='white')
-        self.spectrum_plot.getAxis('left').setTextPen(color='white')
-        spectrum_layout.addWidget(self.spectrum_plot)
-        
-        self.spectrum_info = QLabel("Full signal power analysis")
-        self.spectrum_info.setStyleSheet("padding: 8px; background: #3c3c3c; border-radius: 4px; font-size: 12px; color: #cccccc; border: 1px solid #555555;")
-        spectrum_layout.addWidget(self.spectrum_info)
-        
-        h_splitter.addWidget(spectrum_widget)
-        
-        # Set splitter proportions
-        h_splitter.setSizes([600, 600])
-        v_splitter.addWidget(bottom_widget)
-        v_splitter.setSizes([500, 350])
-        
-        parent.addWidget(widget)
-        
-    def load_file_list(self):
-        """Load EDF files"""
-        eeg_path = "/Users/stanrevko/projects/eegan/eeg_data"
-        
-        if os.path.exists(eeg_path):
-            files = [f for f in os.listdir(eeg_path) if f.endswith('.edf')]
-            for file in sorted(files):
-                item = QListWidgetItem(f"📄 {file}")
-                item.setData(Qt.UserRole, os.path.join(eeg_path, file))
-                self.file_list.addItem(item)
-                
-    def on_file_selected(self, item):
-        """Handle file selection"""
-        file_name = item.text().replace("📄 ", "")
-        self.statusBar().showMessage(f"Selected: {file_name}")
-        
-    def load_selected_file(self):
-        """Load and analyze file"""
-        item = self.file_list.currentItem()
-        if not item:
-            QMessageBox.warning(self, "Warning", "Please select a file first")
+    def update_sidebar_action_text(self):
+        """Update the sidebar action text"""
+        if self.sidebar_visible:
+            self.sidebar_action.setText("📁 Hide Sidebar")
+        else:
+            self.sidebar_action.setText("📁 Show Sidebar")
+            
+    def auto_load_file(self, file_path):
+        """Auto-load selected file (main feature!)"""
+        if not os.path.exists(file_path):
+            QMessageBox.warning(self, "Error", "File not found")
             return
             
-        file_path = item.data(Qt.UserRole)
+        file_name = os.path.basename(file_path)
+        
+        # Update toolbar
+        self.file_info_action.setText(f"🔄 Loading: {file_name}")
         
         # Show progress
         self.progress_bar.setVisible(True)
-        self.progress_bar.setRange(0, 0)
-        self.load_button.setEnabled(False)
+        self.progress_bar.setRange(0, 0)  # Indeterminate
         
         # Start background loading
         self.load_thread = EEGLoadThread(file_path)
         self.load_thread.finished.connect(self.on_load_finished)
-        self.load_thread.progress.connect(lambda msg: self.statusBar().showMessage(msg))
+        self.load_thread.progress.connect(self.update_progress)
         self.load_thread.start()
         
+        self.statusBar().showMessage(f"🔄 Auto-loading: {file_name}")
+        
+    def update_progress(self, message):
+        """Update progress message"""
+        self.statusBar().showMessage(message)
+        
     def on_load_finished(self, success, message):
-        """Handle loading completion"""
+        """Handle file loading completion"""
         self.progress_bar.setVisible(False)
-        self.load_button.setEnabled(True)
         
         if success:
+            # Store analysis components
             self.loader = self.load_thread.loader
             self.processor = self.load_thread.processor
             self.analyzer = self.load_thread.analyzer
             
-            # Setup timeline slider
-            total_duration = self.processor.get_duration()
-            self.timeline_slider.setEnabled(True)
-            self.timeline_slider.setRange(0, int(total_duration - self.time_window))
-            self.timeline_slider.setValue(0)
-            self.current_time_start = 0
-            
-            # Update channel list
-            self.update_channel_list()
+            # Update toolbar
+            file_info = self.loader.get_file_info()
+            self.file_info_action.setText(f"📄 {file_info['filename']} ({file_info['duration']:.1f}s)")
             
             # Update all panels
             self.update_all_panels()
             
-            self.statusBar().showMessage(f"✅ {message}")
+            self.statusBar().showMessage(message)
         else:
-            QMessageBox.critical(self, "Error", message)
-            
-    def update_channel_list(self):
-        """Update channel dropdown"""
-        self.channel_combo.clear()
-        if self.processor:
-            channels = self.processor.get_channel_names()
-            for i, name in enumerate(channels):
-                self.channel_combo.addItem(name, i)
-                
-    def on_time_window_changed(self):
-        """Handle time window change"""
-        self.time_window = self.time_window_spin.value()
-        if self.processor:
-            # Update slider range
-            total_duration = self.processor.get_duration()
-            self.timeline_slider.setRange(0, max(0, int(total_duration - self.time_window)))
-            # Update EEG display
-            self.update_eeg_panel()
-            
-    def on_timeline_changed(self):
-        """Handle timeline scroll"""
-        if self.processor:
-            self.current_time_start = self.timeline_slider.value()
-            self.update_eeg_panel()
-            
-            # Update timeline label
-            total_duration = self.processor.get_duration()
-            current_end = min(self.current_time_start + self.time_window, total_duration)
-            self.timeline_label.setText(f"{self.current_time_start:.1f}s / {total_duration:.1f}s")
+            self.file_info_action.setText("📄 No file loaded")
+            QMessageBox.critical(self, "Loading Error", message)
+            self.statusBar().showMessage(message)
             
     def update_all_panels(self):
-        """Update all panels"""
+        """Update all analysis panels with new data"""
         if not self.processor or not self.analyzer:
             return
             
         try:
-            self.update_eeg_panel()
-            self.update_analysis_plots()
+            # Update EEG timeline panel
+            self.eeg_panel.set_processor(self.processor)
             
-            # Update file info
-            info = self.loader.get_file_info()
-            info_text = f"📄 {info['filename']} | 📊 {info['n_channels']} channels | ⚡ {info['sampling_rate']} Hz | ⏱️ {info['duration']:.1f}s"
-            self.eeg_info.setText(info_text)
+            # Update analysis panels
+            self.analysis_panel.set_analyzer(self.analyzer)
+            self.spectrum_panel.set_analyzer(self.analyzer)
             
-        except Exception as e:
-            self.statusBar().showMessage(f"Display error: {e}")
-            
-    def update_eeg_panel(self):
-        """Update EEG display with scrollable timeline"""
-        if not self.processor:
-            return
-            
-        try:
-            # Get data for current time window
-            start_time = self.current_time_start
-            end_time = start_time + self.time_window
-            
-            data, times = self.processor.get_filtered_data(start_time=start_time, stop_time=end_time)
-            if data is None:
-                return
+            # Set initial channel (first visible channel)
+            visible_channels = self.eeg_panel.get_visible_channels()
+            if visible_channels:
+                initial_channel = visible_channels[0]
+                self.analysis_panel.set_channel(initial_channel)
+                self.spectrum_panel.set_channel(initial_channel)
                 
-            self.eeg_plot.clear()
-            data_uv = data * 1e6  # Convert to microvolts
-            
-            # Plot channels with fixed positioning (no negative Y values)
-            colors = ['#00bfff', '#ff4444', '#44ff44', '#ff8800', '#8844ff', '#ff44ff', '#ffff44', '#88ffff']
-            channel_names = self.processor.get_channel_names()
-            
-            for i in range(min(8, data.shape[0])):
-                # Normalize and position channels starting from Y=0
-                normalized = (data_uv[i] / 200) + (i + 1) * 3  # Start from Y=3, not Y=0
-                
-                # Plot signal
-                color = colors[i % len(colors)]
-                self.eeg_plot.plot(times, normalized, pen=pg.mkPen(color=color, width=1))
-                
-                # Add channel label
-                text = pg.TextItem(channel_names[i], color=color, anchor=(0, 0.5))
-                self.eeg_plot.addItem(text)
-                text.setPos(times[0], (i + 1) * 3)
-                
-            # Set plot ranges - fixed at 0,0 minimum
-            self.eeg_plot.setXRange(times[0], times[-1])
-            self.eeg_plot.setYRange(0, min(8, data.shape[0]) * 3 + 3)
+            self.statusBar().showMessage("✅ All panels updated - Full analysis ready!")
             
         except Exception as e:
-            print(f"EEG panel error: {e}")
+            error_msg = f"Error updating panels: {str(e)}"
+            self.statusBar().showMessage(error_msg)
+            print(error_msg)
             
-    def update_analysis_plots(self):
-        """Update alpha and spectrum with fixed axes"""
-        if not self.analyzer:
-            return
+    def on_timeline_changed(self, position):
+        """Handle timeline position changes"""
+        # Timeline changes could trigger updates to analysis if needed
+        pass
+        
+    def on_channel_visibility_changed(self, visible_channels):
+        """Handle channel visibility changes"""
+        if visible_channels and self.analyzer:
+            # Update analysis panels to use first visible channel
+            self.analysis_panel.set_channel(visible_channels[0])
+            self.spectrum_panel.set_channel(visible_channels[0])
             
-        try:
-            channel_idx = self.channel_combo.currentData() or 0
-                
-            # Alpha Power Plot - fixed axes (no negative values)
-            times, alpha_powers = self.analyzer.calculate_alpha_power_sliding(channel_idx)
-            if times is not None and alpha_powers is not None:
-                self.alpha_plot.clear()
-                self.alpha_plot.plot(times, alpha_powers, 
-                                   pen=pg.mkPen(color='#ff9800', width=2),
-                                   symbol='o', symbolSize=4, symbolBrush='#ff9800')
-                
-                # Set range starting from 0,0
-                self.alpha_plot.setXRange(0, times[-1])
-                self.alpha_plot.setYRange(0, np.max(alpha_powers) * 1.1)
-                
-                # Update stats
-                stats = self.analyzer.get_alpha_statistics(channel_idx)
-                if stats:
-                    alpha_text = f"Mean: {stats['mean_alpha_power']:.2f} μV² | Max: {stats['max_alpha_power']:.2f} μV² | {stats['n_windows']} windows"
-                    self.alpha_info.setText(alpha_text)
-                    
-            # Spectrum Plot - fixed axes
-            freqs, psd = self.analyzer.calculate_frequency_spectrum(channel_idx)
-            if freqs is not None and psd is not None:
-                self.spectrum_plot.clear()
-                self.spectrum_plot.plot(freqs, psd, pen=pg.mkPen(color='#2196f3', width=2))
-                
-                # Add frequency band markers
-                bands = [
-                    (0.5, 4, 'Delta', '#ff4444'),
-                    (4, 8, 'Theta', '#44ff44'), 
-                    (8, 13, 'Alpha', '#ff9800'),
-                    (13, 30, 'Beta', '#8844ff')
-                ]
-                
-                for low, high, name, color in bands:
-                    if low >= freqs[0] and low <= freqs[-1]:
-                        line = pg.InfiniteLine(pos=low, angle=90, 
-                                             pen=pg.mkPen(color=color, style=pg.QtCore.Qt.DashLine, width=2))
-                        self.spectrum_plot.addItem(line)
-                        
-                    if high >= freqs[0] and high <= freqs[-1]:
-                        line = pg.InfiniteLine(pos=high, angle=90, 
-                                             pen=pg.mkPen(color=color, style=pg.QtCore.Qt.DashLine, width=2))
-                        self.spectrum_plot.addItem(line)
-                
-                # Set range starting from 0,0
-                self.spectrum_plot.setXRange(0, 40)
-                
-                # Update band info
-                bands_power = self.analyzer.get_frequency_bands_power(channel_idx)
-                if bands_power:
-                    total_power = sum(bands_power.values())
-                    alpha_pct = (bands_power['Alpha (8-13 Hz)'] / total_power) * 100 if total_power > 0 else 0
-                    spectrum_text = f"Alpha: {alpha_pct:.1f}% | Total: {total_power:.1f} μV²"
-                    self.spectrum_info.setText(spectrum_text)
-                    
-        except Exception as e:
-            print(f"Analysis plots error: {e}")
+    def on_frequency_band_changed(self, band_name):
+        """Handle frequency band changes"""
+        # Optionally highlight the band on spectrum
+        self.spectrum_panel.highlight_frequency_band(band_name)
+        self.statusBar().showMessage(f"📊 Switched to {band_name} band analysis")
+        
+    def on_folder_changed(self, folder_path):
+        """Handle folder changes"""
+        self.statusBar().showMessage(f"📁 Folder changed to: {os.path.basename(folder_path)}")
+        
+    def restore_window_state(self):
+        """Restore window geometry from settings"""
+        geometry = self.settings.get('window_geometry')
+        if geometry:
+            self.setGeometry(geometry['x'], geometry['y'], geometry['width'], geometry['height'])
+        else:
+            self.setGeometry(50, 50, 1600, 1000)
+            
+    def save_window_state(self):
+        """Save current window state"""
+        geometry = self.geometry()
+        self.settings.set('window_geometry', {
+            'x': geometry.x(),
+            'y': geometry.y(),
+            'width': geometry.width(),
+            'height': geometry.height()
+        })
+        
+    def closeEvent(self, event):
+        """Handle application close"""
+        self.save_window_state()
+        super().closeEvent(event)
 
 
 def main():
     """Main application entry point"""
     app = QApplication(sys.argv)
-    app.setStyle('Fusion')
+    app.setStyle('Fusion')  # Modern look
     
+    # Set application properties
+    app.setApplicationName("EEG Analysis Suite")
+    app.setApplicationVersion("2.0")
+    app.setOrganizationName("EEG Research")
+    
+    # Create and show main window
     window = MainWindow()
     window.show()
     

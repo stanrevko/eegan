@@ -1,284 +1,186 @@
-# EEG Analysis Application
+# Enhanced EEG Analysis Suite
 
-## 🚀 How to Start the Script
+## 🚀 How to Start (Quick Launch)
 
-### Quick Start (GUI Application Ready!)
 ```bash
-# Navigate to project directory
+# Navigate to project
 cd /Users/stanrevko/projects/eegan
 
-# Activate virtual environment
+# Activate environment
 source venv/bin/activate
 
-# Run the EEG Analysis Application
+# Launch enhanced application
 python main.py
-```
-
-### First Time Setup
-```bash
-# 1. Navigate to project directory
-cd /Users/stanrevko/projects/eegan
-
-# 2. Create virtual environment (if not already created)
-python3 -m venv venv
-
-# 3. Activate virtual environment
-source venv/bin/activate
-
-# 4. Install dependencies
-pip install -r requirements.txt
-
-# 5. Run the application
-python main.py
-```
-
-### Testing Individual Components
-```bash
-# Test EEG loading and filtering (command line)
-python test_processor.py
-
-# Test file loading only
-python eeg/loader.py
 ```
 
 ---
 
-## 📋 Application Features
+## ✨ **NEW ENHANCED FEATURES**
 
-### 🎯 Current Working Features
-- **📁 File Browser**: Browse and select EEG files (.edf format)
-- **🔧 Signal Filtering**: Automatic 0.1Hz - 40Hz bandpass filter
-- **🧠 EEG Visualization**: Multi-channel signal plotting (up to 10 channels)
-- **⚖️ Scale Control**: Adjustable amplitude scaling (50-500 μV)
-- **⏱️ Time Window**: Configurable time display (5-60 seconds)
-- **📊 Real-time Display**: Interactive signal visualization with pyqtgraph
-- **🔄 Background Loading**: Non-blocking file loading with progress indication
-- **ℹ️ File Information**: Channel count, sampling rate, duration display
+### 🎯 **Auto-Loading System**
+- **Single-click file loading**: Click any EDF file to automatically load and analyze
+- **Folder selection**: Browse and change EEG data directories
+- **Recent folders**: Quick access to recently used folders
+- **No manual load button needed** - Just click and analyze!
 
-### 🚧 Planned Features (Future Updates)
-- [ ] Alpha Power Analysis (8-13Hz sliding windows)
-- [ ] Full Spectrum Power Display
-- [ ] Signal Annotation Tools
-- [ ] Export Functionality
-- [ ] Advanced Filtering Options
-- [ ] Signal Quality Assessment
+### 📊 **Configurable Frequency Analysis**
+- **Dynamic band selection**: Choose Alpha, Beta, Theta, Delta, or Gamma
+- **Real-time switching**: Change frequency bands instantly
+- **Color-coded analysis**: Each band has distinct colors and markers
+- **Custom frequency ranges**: Support for user-defined bands
 
-## 🏗️ Project Structure
+### 🖥️ **Enhanced EEG Timeline**
+- **Full timeline view**: See entire recording, not just windows
+- **Embedded controls**: Timeline and scaling controls integrated in EEG panel
+- **No negative axes**: Zero point (0,0) anchored, no scrolling below zero
+- **Y-axis scaling**: Adjustable signal amplitude (10μV - 1000μV)
 
+### 👁️ **Advanced Channel Management**
+- **Channel visibility**: Individual checkboxes to show/hide channels
+- **Quick selection**: "All" and "None" buttons for easy channel control
+- **Color-coded channels**: Each channel has distinct colors and labels
+- **Collapsible controls**: Hide/show channel panel as needed
+
+### 🎛️ **Collapsible Interface**
+- **Sidebar toggle**: Hide/show file browser (Ctrl+B shortcut)
+- **Responsive layout**: Content expands when sidebar is hidden
+- **State persistence**: Remembers panel visibility between sessions
+- **Professional workflow**: Focus on analysis when needed
+
+---
+
+## 🏗️ **Modular Architecture**
+
+### **Enhanced Structure:**
 ```
 eegan/
-├── README.md                 # This file
-├── requirements.txt          # Python dependencies
-├── main.py                   # ✅ Main application entry point
-├── test_processor.py         # Test script for signal processing
-├── venv/                     # Virtual environment
-├── eeg_data/                 # EEG files directory
-│   ├── background-1m.edf
-│   ├── background-2m.edf
-│   ├── biofeed-1m.edf
-│   └── ... (other EDF files)
-├── eeg/                      # EEG processing modules
-│   ├── __init__.py
-│   ├── loader.py            # ✅ EEG file loading (MNE)
-│   ├── processor.py         # ✅ Signal filtering and preprocessing
-│   └── analyzer.py          # 🚧 Spectral analysis (planned)
-└── gui/                      # GUI components
-    ├── __init__.py
-    ├── main_window.py       # ✅ Main application window
-    └── file_browser.py      # 🚧 Enhanced file browser (planned)
-```
-
-## 🧠 EEG Data
-
-**Location**: `/Users/stanrevko/projects/eegan/eeg_data/`
-
-**Available Files**:
-- `background-1m.edf`, `background-2m.edf`, `background-3f.edf`, `background-4f.edf`
-- `biofeed-1m.edf`, `biofeed-2m.edf`, `biofeed-3f.edf`, `biofedd-4f.edf`
-
-**File Specifications**:
-- Format: European Data Format (.edf)
-- Channels: 21 EEG electrodes
-- Sampling Rate: 500 Hz
-- Duration: ~1-10 minutes per file
-- Channel Names: Standard 10-20 system (Fp1, Fp2, F3, F4, F7, etc.)
-
-## 🖥️ GUI Interface
-
-### Left Panel - File Browser
-- **📁 File List**: All available EDF files in your data directory
-- **🔧 Filter Status**: Shows active 0.1-40Hz bandpass filter
-- **⚖️ Scale Control**: Dropdown for signal amplitude (50, 100, 200, 500 μV)
-- **⏱️ Time Window**: Choose display duration (5, 10, 30, 60 seconds)
-- **📂 Load Button**: Load selected file with progress indication
-
-### Right Panel - EEG Visualization
-- **🧠 Signal Display**: Real-time multi-channel EEG plotting
-- **📊 Channel View**: First 10 channels displayed with color coding
-- **📈 Interactive Plot**: Zoom, pan, and scale functionality
-- **ℹ️ File Information**: Displays loaded file details and statistics
-
-### How to Use
-1. **Select File**: Click on any EDF file in the left panel
-2. **Load File**: Click "📂 Load Selected File" button
-3. **View Signals**: EEG channels appear in the right panel
-4. **Adjust View**: Use Scale and Time Window controls
-5. **Explore**: Try different files and settings
-
-## 🔧 Technical Requirements
-
-### Dependencies
-- **mne >= 1.5.0**: EEG data processing and analysis
-- **PyQt5 >= 5.15.0**: GUI framework
-- **pyqtgraph >= 0.13.0**: Real-time plotting
-- **numpy >= 1.21.0**: Numerical computations
-- **matplotlib >= 3.5.0**: Additional plotting support
-- **scipy >= 1.9.0**: Signal processing
-
-### System Requirements
-- Python 3.8+
-- macOS/Linux/Windows
-- 4GB+ RAM (for processing EEG data)
-- Display resolution: 1400x800 minimum recommended
-
-## 🧪 Testing & Validation
-
-### Application Testing
-```bash
-# Run the full GUI application
-python main.py
-
-# Expected: PyQt5 window opens with file browser and plot area
-```
-
-### Component Testing
-```bash
-# Test signal processing pipeline
-python test_processor.py
-
-# Expected output:
-# ✅ File loaded successfully
-# 📊 Signal statistics (before/after filtering)
-# 🔧 0.1-40Hz bandpass filter applied
-# Range reduction indicating noise removal
-```
-
-### Individual Module Testing
-```bash
-# Test EEG file loading
-python eeg/loader.py
-
-# Test in Python console
-python -c "from eeg.loader import EEGLoader; from eeg.processor import EEGProcessor; print('✅ All modules working!')"
-```
-
-## 📊 Signal Processing Pipeline
-
-1. **File Selection**: User selects EDF file from browser
-2. **Background Loading**: File loads in separate thread (non-blocking)
-3. **Automatic Filtering**: 0.1-40Hz bandpass filter applied
-4. **Data Conversion**: Signals converted to microvolts (μV)
-5. **Multi-channel Display**: First 10 channels plotted with color coding
-6. **Interactive Controls**: Real-time scale and time window adjustment
-
-## 🎯 Development Status
-
-### ✅ Completed (Fully Working)
-- [x] Project structure and virtual environment
-- [x] EEG file loading with MNE-Python integration
-- [x] Signal filtering (0.1-40Hz bandpass)
-- [x] **PyQt5 GUI application with file browser**
-- [x] **Real-time EEG signal visualization**
-- [x] **Interactive scale and time controls**
-- [x] **Background file loading with progress**
-- [x] **Multi-channel signal display**
-- [x] **File information and statistics**
-
-### 🚧 Future Enhancements
-- [ ] Alpha power analyzer (8-13Hz sliding windows)
-- [ ] Power spectrum frequency analysis
-- [ ] Signal annotation and marking tools
-- [ ] Data export functionality (CSV, images)
-- [ ] Advanced filtering options
-- [ ] Signal quality indicators
-- [ ] Multiple file comparison
-- [ ] Configuration settings
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-**GUI Won't Start**:
-```bash
-# Check virtual environment
-source venv/bin/activate
-python --version
-
-# Reinstall PyQt5 if needed
-pip install --force-reinstall PyQt5
-```
-
-**"No EDF files found"**:
-- Verify files are in `/Users/stanrevko/projects/eegan/eeg_data/`
-- Check file permissions: `ls -la eeg_data/`
-- Ensure files have `.edf` extension
-
-**Import Errors**:
-```bash
-# Make sure you're in the project directory
-cd /Users/stanrevko/projects/eegan
-
-# Activate virtual environment
-source venv/bin/activate
-
-# Check installation
-pip list | grep -E "(mne|PyQt5|pyqtgraph)"
-```
-
-**Plot Display Issues**:
-- Try different scale settings (50-500 μV)
-- Adjust time window (5-60 seconds)
-- Check if file loaded successfully (status bar message)
-
-## 🚀 Performance Notes
-
-- **Loading Time**: 2-5 seconds per EDF file (background loading)
-- **Memory Usage**: ~100-200MB per loaded file
-- **Display**: Smooth real-time plotting up to 10 channels
-- **Filtering**: Real-time 0.1-40Hz bandpass processing
-
-## 📝 Usage Examples
-
-### Basic Workflow
-```bash
-# 1. Start application
-python main.py
-
-# 2. Select "background-1m.edf" from file list
-# 3. Click "Load Selected File"
-# 4. Wait for loading progress
-# 5. View filtered EEG signals
-# 6. Adjust scale to 100 μV if signals are too small
-# 7. Try 30-second time window for longer view
-```
-
-### Comparing Files
-```bash
-# Load different files to compare:
-# - background files (resting state)
-# - biofeed files (active tasks)
-# Notice differences in signal patterns and amplitudes
+├── main.py                     # ✅ Enhanced launcher
+├── gui/                        # ✅ Modular UI components
+│   ├── main_window.py          # ✅ Main application container
+│   ├── file_panel.py           # ✅ Auto-loading file browser
+│   ├── eeg_timeline_panel.py   # ✅ Full timeline with controls
+│   ├── analysis_panel.py       # ✅ Configurable frequency bands
+│   ├── spectrum_panel.py       # ✅ Enhanced spectrum display
+│   └── ui_controls.py          # ✅ Reusable UI components
+├── eeg/                        # ✅ Core EEG processing
+│   ├── loader.py               # ✅ File loading
+│   ├── processor.py            # ✅ Signal processing
+│   ├── analyzer.py             # ✅ Spectral analysis
+│   └── frequency_bands.py      # ✅ Configurable band definitions
+├── utils/                      # ✅ Application utilities
+│   ├── settings.py             # ✅ User preferences & persistence
+│   └── ui_helpers.py           # ✅ UI utility functions
+└── eeg_data/                   # Your EEG files
 ```
 
 ---
 
-## 📧 Contact & Development
+## 🎮 **How to Use Enhanced Features**
 
-This is a working EEG analysis application built with:
-- **Backend**: MNE-Python for signal processing
-- **Frontend**: PyQt5 + pyqtgraph for real-time visualization
-- **Architecture**: Modular design for easy extension
+### **1. Auto-Loading Files**
+1. Click any EDF file in the left panel
+2. File automatically loads, filters, and analyzes
+3. All 3 panels update with complete analysis
+4. No "Load" button needed - it's instant!
 
-**Ready for immediate use** - select files, view signals, and explore your EEG data!
+### **2. Change Data Folder**
+1. Click "📂 Browse" in file panel
+2. Select new folder with EEG files
+3. Recent folders dropdown for quick access
+4. Files refresh automatically
 
-**Last Updated**: May 25, 2025 - Minimal GUI Version Complete ✅
+### **3. Switch Frequency Bands**
+1. Use dropdown in analysis panel: Alpha → Beta → Theta → Delta
+2. Real-time analysis updates with new frequency range
+3. Spectrum plot highlights selected band
+4. Statistics update for chosen band
+
+### **4. Navigate Full Timeline**
+1. EEG shows entire recording duration
+2. Use timeline slider to scroll through time
+3. Quick jump buttons (Start/End)
+4. Position indicator shows current time
+
+### **5. Control Display**
+1. **Y-axis scaling**: Slider to adjust signal amplitude
+2. **Channel visibility**: Click "📋 Channels" to show/hide individual channels
+3. **Sidebar toggle**: "◀ Hide" button or Ctrl+B to collapse file panel
+4. **Zero anchoring**: Cannot scroll below (0,0) - professional medical display
+
+---
+
+## 📊 **Analysis Features**
+
+### **Real-Time Frequency Analysis**
+- **Alpha (8-13Hz)**: Default brain rhythm analysis
+- **Beta (13-30Hz)**: High-frequency activity
+- **Theta (4-8Hz)**: Meditation and sleep states  
+- **Delta (0.5-4Hz)**: Deep sleep patterns
+- **Gamma (30-40Hz)**: High cognitive activity
+
+### **Professional EEG Display**
+- **Multi-channel visualization**: Color-coded channel labels
+- **Full timeline navigation**: Scroll through entire recording
+- **Medical-grade axes**: Zero-anchored, no negative scrolling
+- **Adjustable scaling**: 10μV to 1000μV range
+
+### **Advanced Analytics**
+- **Sliding window analysis**: 2-second windows, 0.5-second overlap
+- **Power spectrum**: Logarithmic frequency analysis
+- **Band statistics**: Mean, max, standard deviation, relative power
+- **Real-time updates**: All panels sync with channel/band changes
+
+---
+
+## ⌨️ **Keyboard Shortcuts**
+
+- **Ctrl+B**: Toggle sidebar visibility
+- **F5**: Refresh file list
+- **Click**: Auto-load any EDF file
+
+---
+
+## 🎯 **Implementation Highlights**
+
+### **✅ All Requested Features Implemented:**
+1. ✅ **Auto-loading on click** - No manual load button needed
+2. ✅ **Folder selection** - Browse and change directories  
+3. ✅ **Configurable frequency bands** - Alpha/Beta/Theta/Delta dropdown
+4. ✅ **Full EEG timeline** - Complete recording navigation
+5. ✅ **Zero-anchored axes** - No negative scrolling
+6. ✅ **Embedded timeline controls** - Moved to EEG panel
+7. ✅ **Y-axis scaling** - Adjustable signal amplitude
+8. ✅ **Collapsible sidebar** - Hide/show file panel
+9. ✅ **Channel visibility** - Individual channel control
+
+### **✅ Modular Code Architecture:**
+- **Separation of concerns**: Each panel is independent
+- **Easy maintenance**: Clear module boundaries
+- **Extensible design**: Simple to add new features
+- **Settings persistence**: User preferences saved
+- **Professional structure**: Industry-standard organization
+
+---
+
+## 🧠 **Technical Specifications**
+
+**Supported Formats**: EDF (European Data Format)
+**Filtering**: 0.1Hz - 40Hz bandpass (automatic)
+**Frequency Bands**: Alpha, Beta, Theta, Delta, Gamma (configurable)
+**Timeline**: Full recording duration with 0.1s precision
+**Channels**: Up to 21 channels with individual visibility control
+**Scaling**: 10μV - 1000μV amplitude range
+**Analysis**: Real-time spectral analysis with sliding windows
+
+---
+
+## 🔄 **Version 2.0 - Enhanced & Modular**
+
+**Previous**: Basic 3-panel layout with manual loading
+**Now**: Professional EEG suite with auto-loading, configurable analysis, and modular architecture
+
+**Perfect for**: Clinical EEG analysis, research applications, educational use, and professional neuroscience workflows.
+
+---
+
+**Last Updated**: May 25, 2025 - Enhanced Modular Version ✅
