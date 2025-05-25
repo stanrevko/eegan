@@ -226,3 +226,91 @@ class EEGAnalyzer:
             
         print(f"\nTotal Power: {total_power:.3f} μV²")
         print("="*60)
+
+    def calculate_band_power(self, band_name, channel_idx=0, start_time=None, end_time=None):
+        """
+        Calculate power for a specific frequency band within a timeframe
+        
+        Args:
+            band_name: Name of frequency band ('Alpha', 'Beta', 'Theta', 'Delta', 'Gamma')
+            channel_idx: Channel index to analyze
+            start_time: Start time in seconds (None for beginning)
+            end_time: End time in seconds (None for end)
+            
+        Returns:
+            numpy.ndarray: Power values over time for the specified timeframe
+        """
+        if not self.processor:
+            return None
+            
+        try:
+            # Get data from processor
+            data, times = self.processor.get_filtered_data()
+            if data is None:
+                return None
+                
+            sfreq = self.processor.get_sampling_rate()
+            
+            # Convert time to sample indices
+            if start_time is None:
+                start_idx = 0
+            else:
+                start_idx = int(start_time * sfreq)
+                
+            if end_time is None:
+                end_idx = data.shape[1]
+            else:
+                end_idx = int(end_time * sfreq)
+                
+            # Ensure indices are valid
+            start_idx = max(0, start_idx)
+            end_idx = min(data.shape[1], end_idx)
+            
+            if start_idx >= end_idx:
+                return None
+                
+            # Extract data for timeframe and channel
+            channel_data = data[channel_idx, start_idx:end_idx]
+            
+            # Define frequency bands
+            band_ranges = {
+                'Delta': (0.5, 4),
+                'Theta': (4, 8),
+                'Alpha': (8, 12),
+                'Beta': (12, 30),
+                'Gamma': (30, 100)
+            }
+            
+            if band_name not in band_ranges:
+                return None
+                
+            low_freq, high_freq = band_ranges[band_name]
+            
+            # Calculate sliding window power
+            window_samples = int(2.0 * sfreq)  # 2 second windows
+            overlap_samples = int(0.5 * window_samples)  # 50% overlap
+            
+            power_values = []
+            
+            for i in range(0, len(channel_data) - window_samples + 1, window_samples - overlap_samples):
+                window_data = channel_data[i:i + window_samples]
+                
+                # Calculate power spectral density
+                from scipy import signal
+                freqs, psd = signal.welch(window_data, sfreq, nperseg=min(window_samples, 256))
+                
+                # Find frequency indices for the band
+                freq_mask = (freqs >= low_freq) & (freqs <= high_freq)
+                
+                # Calculate power in the band
+                if np.any(freq_mask):
+                    band_power = np.trapz(psd[freq_mask], freqs[freq_mask])
+                    power_values.append(band_power)
+                else:
+                    power_values.append(0)
+                    
+            return np.array(power_values)
+            
+        except Exception as e:
+            print(f"Error calculating {band_name} band power: {e}")
+            return None

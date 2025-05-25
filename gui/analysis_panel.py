@@ -21,7 +21,8 @@ class AnalysisPanel(QWidget):
         self.current_channel = 0
         self.current_time = 0
         self.current_duration = 0
-        
+        self.analysis_start_time = 0
+        self.analysis_end_time = 0        
         self.init_ui()
         self.setup_connections()
         
@@ -122,3 +123,24 @@ class AnalysisPanel(QWidget):
     def get_current_channel(self):
         """Get current channel"""
         return self.current_channel
+    
+    def set_timeframe(self, start_time, end_time):
+        """Set analysis timeframe"""
+        self.analysis_start_time = start_time
+        self.analysis_end_time = end_time
+        
+        # Update power plot with new timeframe
+        if self.analyzer:
+            self.update_power_analysis()
+            
+    def update_power_analysis(self):
+        """Update power analysis with current timeframe"""
+        if not self.analyzer:
+            return
+            
+        try:
+            # Update power plot with current band and timeframe
+            self.power_plot.set_timeframe(self.analysis_start_time, self.analysis_end_time)
+            
+        except Exception as e:
+            print(f"Error updating power analysis: {e}")

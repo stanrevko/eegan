@@ -65,10 +65,18 @@ class EEGPlotWidget(QWidget):
         self.update_plot()
         
     def update_plot_limits(self):
-        """Update plot axis limits"""
+        """Update plot axis limits - constrain to recorded timeframe"""
         if self.total_duration > 0:
+            # Set fixed range - no scrolling beyond recorded data
             self.plot_widget.setXRange(0, self.total_duration, padding=0)
-            
+            # Disable auto-ranging to prevent scrolling out of bounds
+            # Block scrolling left of 0 and right of total_duration
+            self.plot_widget.getPlotItem().getViewBox().setLimits(
+                xMin=0, xMax=self.total_duration, yMin=None, yMax=None)
+            self.plot_widget.getPlotItem().getViewBox().setMouseEnabled(x=True, y=True)
+            # Allow zoom but constrain to time limits (0 to total_duration)
+            self.plot_widget.getPlotItem().getViewBox().setXRange(0, self.total_duration, padding=0)
+
     def update_plot(self):
         """Update the EEG plot"""
         if not self.processor or not self.visible_channels:

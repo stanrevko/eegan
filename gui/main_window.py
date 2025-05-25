@@ -1,12 +1,16 @@
 """
-Enhanced Main Window - Simplified layout
-EEG timeline + Alpha analysis only (spectrum hidden)
+Enhanced Main Window - Improved Layout
+- Status bar moved to sidebar
+- Timeline moved to topbar
+- Added timeframe controls
+- Fixed plot scrolling limits
 """
 
 import sys
 import os
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QHBoxLayout, QVBoxLayout, 
-                             QWidget, QSplitter, QMessageBox, QProgressBar, QToolBar)
+                             QWidget, QSplitter, QMessageBox, QProgressBar, QToolBar,
+                             QLabel, QDoubleSpinBox, QFrame, QPushButton)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWidgets import QShortcut, QAction
@@ -22,6 +26,121 @@ from utils.ui_helpers import create_styled_button, create_collapsible_button
 from gui.file_panel import FilePanel
 from gui.eeg_timeline_panel import EEGTimelinePanel
 from gui.analysis_panel import AnalysisPanel
+from gui.plots import TimelineControls
+
+
+class TimeframeControls(QWidget):
+    """Timeframe selector for analysis window"""
+    
+    timeframe_changed = pyqtSignal(float, float)  # start_time, end_time
+    
+    def __init__(self):
+        super().__init__()
+        self.total_duration = 0
+        self.start_time = 0
+        self.end_time = 0
+        
+        self.init_ui()
+        
+    def init_ui(self):
+        """Initialize timeframe controls"""
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(5, 0, 5, 0)
+        
+        # Timeframe label
+        label = QLabel("📊 Analysis Window:")
+        label.setStyleSheet("font-weight: bold; color: #ffffff;")
+        layout.addWidget(label)
+        
+        # Start time
+        layout.addWidget(QLabel("From:"))
+        self.start_spin = QDoubleSpinBox()
+        self.start_spin.setMinimum(0)
+        self.start_spin.setMaximum(999)
+        self.start_spin.setSuffix("s")
+        self.start_spin.setDecimals(1)
+        self.start_spin.valueChanged.connect(self.on_timeframe_changed)
+        layout.addWidget(self.start_spin)
+        
+        # End time
+        layout.addWidget(QLabel("To:"))
+        self.end_spin = QDoubleSpinBox()
+        self.end_spin.setMinimum(0)
+        self.end_spin.setMaximum(999)
+        self.end_spin.setSuffix("s")
+        self.end_spin.setDecimals(1)
+        self.end_spin.valueChanged.connect(self.on_timeframe_changed)
+        layout.addWidget(self.end_spin)
+        
+        # Set full range button
+        self.full_range_btn = QPushButton("Full Range")
+        self.full_range_btn.clicked.connect(self.set_full_range)
+        layout.addWidget(self.full_range_btn)
+        
+        # Apply dark styling
+        self.setStyleSheet("""
+            QDoubleSpinBox {
+                background-color: #3c3c3c;
+                color: #ffffff;
+                border: 1px solid #555555;
+                border-radius: 3px;
+                padding: 3px;
+                min-width: 60px;
+            }
+            QPushButton {
+                background-color: #0078d4;
+                color: #ffffff;
+                border: none;
+                padding: 5px 10px;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #106ebe;
+            }
+            QLabel {
+                color: #ffffff;
+            }
+        """)
+        
+    def set_duration(self, duration):
+        """Set total duration and update controls"""
+        self.total_duration = duration
+        
+        # Update spinbox ranges
+        self.start_spin.setMaximum(duration)
+        self.end_spin.setMaximum(duration)
+        
+        # Set initial values to full range
+        self.start_spin.setValue(0)
+        self.end_spin.setValue(duration)
+        
+        self.start_time = 0
+        self.end_time = duration
+        
+    def on_timeframe_changed(self):
+        """Handle timeframe changes"""
+        self.start_time = self.start_spin.value()
+        self.end_time = self.end_spin.value()
+        
+        # Ensure start < end
+        if self.start_time >= self.end_time:
+            if self.sender() == self.start_spin:
+                self.end_spin.setValue(self.start_time + 0.1)
+                self.end_time = self.end_spin.value()
+            else:
+                self.start_spin.setValue(max(0, self.end_time - 0.1))
+                self.start_time = self.start_spin.value()
+                
+        self.timeframe_changed.emit(self.start_time, self.end_time)
+        
+    def set_full_range(self):
+        """Set timeframe to full range"""
+        self.start_spin.setValue(0)
+        self.end_spin.setValue(self.total_duration)
+        
+    def get_timeframe(self):
+        """Get current timeframe"""
+        return self.start_time, self.end_time
 
 
 class EEGLoadThread(QThread):
@@ -60,8 +179,85 @@ class EEGLoadThread(QThread):
             self.finished.emit(False, f"❌ Error: {str(e)}")
 
 
+class EnhancedFilePanel(QWidget):
+    """Enhanced file panel with status bar integrated"""
+    
+    file_selected = pyqtSignal(str)
+    folder_changed = pyqtSignal(str)
+    
+    def __init__(self, settings):
+        super().__init__()
+        self.settings = settings
+        
+        self.init_ui()
+        
+    def init_ui(self):
+        """Initialize enhanced file panel with status"""
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(5, 5, 5, 5)
+        
+        # File panel
+        self.file_panel = FilePanel(self.settings)
+        self.file_panel.file_selected.connect(self.file_selected.emit)
+        self.file_panel.folder_changed.connect(self.folder_changed.emit)
+        layout.addWidget(self.file_panel)
+        
+        # Status section (moved from bottom status bar)
+        status_frame = QFrame()
+        status_frame.setFrameStyle(QFrame.Box)
+        status_frame.setStyleSheet("""
+            QFrame {
+                background-color: #3c3c3c;
+                border: 1px solid #555555;
+                border-radius: 5px;
+            }
+        """)
+        
+        status_layout = QVBoxLayout(status_frame)
+        
+        # Status label
+        status_title = QLabel("📊 Status")
+        status_title.setStyleSheet("font-weight: bold; color: #ffffff; padding: 5px;")
+        status_layout.addWidget(status_title)
+        
+        # Status message
+        self.status_label = QLabel("🧠 EEG Analysis Suite Ready")
+        self.status_label.setStyleSheet("color: #ffffff; padding: 5px; font-size: 11px;")
+        self.status_label.setWordWrap(True)
+        status_layout.addWidget(self.status_label)
+        
+        # Progress bar
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setStyleSheet("""
+            QProgressBar {
+                border: 1px solid #555555;
+                background-color: #2b2b2b;
+                color: #ffffff;
+                text-align: center;
+                height: 15px;
+            }
+            QProgressBar::chunk {
+                background-color: #0078d4;
+            }
+        """)
+        self.progress_bar.setVisible(False)
+        status_layout.addWidget(self.progress_bar)
+        
+        layout.addWidget(status_frame)
+        
+    def update_status(self, message):
+        """Update status message"""
+        self.status_label.setText(message)
+        
+    def show_progress(self, show=True):
+        """Show/hide progress bar"""
+        self.progress_bar.setVisible(show)
+        if show:
+            self.progress_bar.setRange(0, 0)  # Indeterminate
+
+
 class MainWindow(QMainWindow):
-    """Enhanced main window - simplified layout"""
+    """Enhanced main window with improved layout"""
     
     def __init__(self):
         super().__init__()
@@ -81,9 +277,9 @@ class MainWindow(QMainWindow):
         self.restore_window_state()
         
     def init_ui(self):
-        """Initialize the simplified user interface"""
+        """Initialize the enhanced user interface"""
         # Window setup
-        self.setWindowTitle("🧠 EEG Analysis Suite - Timeline + Band Analysis")
+        self.setWindowTitle("🧠 EEG Analysis Suite - Enhanced Layout")
         
         # Apply dark theme
         self.setStyleSheet("""
@@ -149,33 +345,10 @@ class MainWindow(QMainWindow):
         # Setup splitter proportions
         self.main_splitter.setSizes([300, 1300])
         
-        # Status bar
-        self.statusBar().setStyleSheet("background-color: #2b2b2b; color: #ffffff;")
-        self.statusBar().showMessage("🧠 EEG Analysis Suite - Timeline + Band Analysis")
+        # No status bar at bottom anymore (moved to sidebar)
         
-        # Progress bar (initially hidden)
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setStyleSheet("""
-            QProgressBar {
-                border: 1px solid #555555;
-                background-color: #3c3c3c;
-                color: #ffffff;
-                text-align: center;
-            }
-            QProgressBar::chunk {
-                background-color: #0078d4;
-            }
-        """)
-        self.progress_bar.setVisible(False)
-        self.statusBar().addPermanentWidget(self.progress_bar)
-        
-        # Force widget visibility
-        if hasattr(self, "eeg_panel"):
-            self.eeg_panel.show()
-        if hasattr(self, "analysis_panel"):
-            self.analysis_panel.show()        
     def create_toolbar(self):
-        """Create toolbar with sidebar toggle"""
+        """Create enhanced toolbar with timeline and timeframe controls"""
         toolbar = self.addToolBar("Main")
         toolbar.setMovable(False)
         
@@ -186,7 +359,7 @@ class MainWindow(QMainWindow):
         self.sidebar_action.triggered.connect(self.toggle_sidebar_action)
         toolbar.addAction(self.sidebar_action)
         
-        # Add separator
+        # Separator
         toolbar.addSeparator()
         
         # File info action
@@ -194,13 +367,29 @@ class MainWindow(QMainWindow):
         self.file_info_action.setEnabled(False)
         toolbar.addAction(self.file_info_action)
         
+        # Separator
+        toolbar.addSeparator()
+        
+        # Timeline controls (moved to toolbar)
+        self.timeline_controls = TimelineControls()
+        self.timeline_controls.position_changed.connect(self.on_timeline_changed)
+        toolbar.addWidget(self.timeline_controls)
+        
+        # Separator
+        toolbar.addSeparator()
+        
+        # Timeframe controls (new)
+        self.timeframe_controls = TimeframeControls()
+        self.timeframe_controls.timeframe_changed.connect(self.on_timeframe_changed)
+        toolbar.addWidget(self.timeframe_controls)
+        
         # Update sidebar toggle text
         self.update_sidebar_action_text()
         
     def create_sidebar(self):
-        """Create collapsible sidebar with file panel"""
-        # File panel
-        self.file_panel = FilePanel(self.settings)
+        """Create enhanced sidebar with integrated status"""
+        # Enhanced file panel with status
+        self.file_panel = EnhancedFilePanel(self.settings)
         self.file_panel.file_selected.connect(self.auto_load_file)
         self.file_panel.folder_changed.connect(self.on_folder_changed)
         
@@ -220,9 +409,8 @@ class MainWindow(QMainWindow):
         self.analysis_splitter = QSplitter(Qt.Vertical)
         analysis_layout.addWidget(self.analysis_splitter)
         
-        # TOP: EEG Timeline Panel (larger portion)
+        # TOP: EEG Timeline Panel (larger portion) - timeline controls moved to toolbar
         self.eeg_panel = EEGTimelinePanel()
-        self.eeg_panel.timeline_changed.connect(self.on_timeline_changed)
         self.eeg_panel.channel_visibility_changed.connect(self.on_channel_visibility_changed)
         self.analysis_splitter.addWidget(self.eeg_panel)
         
@@ -238,7 +426,8 @@ class MainWindow(QMainWindow):
         
         # Ensure analysis panels are visible
         self.eeg_panel.show()
-        self.analysis_panel.show()        
+        self.analysis_panel.show()
+        
     def setup_shortcuts(self):
         """Setup keyboard shortcuts"""
         # Toggle sidebar
@@ -247,7 +436,7 @@ class MainWindow(QMainWindow):
         
         # Refresh file list
         refresh_shortcut = QShortcut(QKeySequence("F5"), self)
-        refresh_shortcut.activated.connect(self.file_panel.refresh_file_list)
+        refresh_shortcut.activated.connect(self.file_panel.file_panel.refresh_file_list)
         
     def toggle_sidebar_action(self, checked):
         """Toggle sidebar via toolbar action"""
@@ -278,7 +467,7 @@ class MainWindow(QMainWindow):
     def auto_load_file(self, file_path):
         """Auto-load selected file"""
         if not os.path.exists(file_path):
-            QMessageBox.warning(self, "Error", "File not found")
+            self.file_panel.update_status("❌ File not found")
             return
             
         file_name = os.path.basename(file_path)
@@ -286,9 +475,8 @@ class MainWindow(QMainWindow):
         # Update toolbar
         self.file_info_action.setText(f"🔄 Loading: {file_name}")
         
-        # Show progress
-        self.progress_bar.setVisible(True)
-        self.progress_bar.setRange(0, 0)  # Indeterminate
+        # Show progress in sidebar
+        self.file_panel.show_progress(True)
         
         # Start background loading
         self.load_thread = EEGLoadThread(file_path)
@@ -296,15 +484,15 @@ class MainWindow(QMainWindow):
         self.load_thread.progress.connect(self.update_progress)
         self.load_thread.start()
         
-        self.statusBar().showMessage(f"🔄 Auto-loading: {file_name}")
+        self.file_panel.update_status(f"🔄 Auto-loading: {file_name}")
         
     def update_progress(self, message):
         """Update progress message"""
-        self.statusBar().showMessage(message)
+        self.file_panel.update_status(message)
         
     def on_load_finished(self, success, message):
         """Handle file loading completion"""
-        self.progress_bar.setVisible(False)
+        self.file_panel.show_progress(False)
         
         if success:
             # Store analysis components
@@ -316,14 +504,18 @@ class MainWindow(QMainWindow):
             file_info = self.loader.get_file_info()
             self.file_info_action.setText(f"📄 {file_info['filename']} ({file_info['duration']:.1f}s)")
             
+            # Update timeline and timeframe controls
+            duration = self.processor.get_duration()
+            self.timeline_controls.set_duration(duration)
+            self.timeframe_controls.set_duration(duration)
+            
             # Update all panels
             self.update_all_panels()
             
-            self.statusBar().showMessage(message)
+            self.file_panel.update_status(message)
         else:
             self.file_info_action.setText("📄 No file loaded")
-            QMessageBox.critical(self, "Loading Error", message)
-            self.statusBar().showMessage(message)
+            self.file_panel.update_status(message)
             
     def update_all_panels(self):
         """Update analysis panels with new data"""
@@ -331,7 +523,7 @@ class MainWindow(QMainWindow):
             return
             
         try:
-            # Update EEG timeline panel
+            # Update EEG timeline panel (without timeline controls)
             self.eeg_panel.set_processor(self.processor)
             
             # Update analysis panel
@@ -343,22 +535,32 @@ class MainWindow(QMainWindow):
                 initial_channel = visible_channels[0]
                 self.analysis_panel.set_channel(initial_channel)
                 
-            self.statusBar().showMessage("✅ EEG timeline and band analysis ready!")
+            self.file_panel.update_status("✅ EEG timeline and band analysis ready!")
             
         except Exception as e:
             error_msg = f"Error updating panels: {str(e)}"
-            self.statusBar().showMessage(error_msg)
+            self.file_panel.update_status(error_msg)
             print(error_msg)
             
     def on_timeline_changed(self, position):
         """Handle timeline position changes - sync with analysis"""
         if self.analysis_panel and self.processor:
-            # Get current time window from EEG panel
-            current_time = self.eeg_panel.get_current_position()
+            # Get current time window from timeline controls
+            current_time = position
             duration = self.processor.get_duration()
             
             # Update analysis panel to sync with timeline
             self.analysis_panel.set_time_window(current_time, duration)
+            
+            # Update EEG panel position
+            self.eeg_panel.set_current_position(position)
+            
+    def on_timeframe_changed(self, start_time, end_time):
+        """Handle timeframe changes for analysis window"""
+        if self.analyzer:
+            # Update analysis to use specific timeframe
+            self.analysis_panel.set_timeframe(start_time, end_time)
+            self.file_panel.update_status(f"📊 Analysis window: {start_time:.1f}s - {end_time:.1f}s")
             
     def on_channel_visibility_changed(self, visible_channels):
         """Handle channel visibility changes"""
@@ -368,11 +570,11 @@ class MainWindow(QMainWindow):
             
     def on_frequency_band_changed(self, band_name):
         """Handle frequency band changes"""
-        self.statusBar().showMessage(f"📊 Switched to {band_name} band analysis")
+        self.file_panel.update_status(f"📊 Switched to {band_name} band analysis")
         
     def on_folder_changed(self, folder_path):
         """Handle folder changes"""
-        self.statusBar().showMessage(f"📁 Folder changed to: {os.path.basename(folder_path)}")
+        self.file_panel.update_status(f"📁 Folder changed to: {os.path.basename(folder_path)}")
         
     def restore_window_state(self):
         """Restore window geometry from settings"""
@@ -405,7 +607,7 @@ def main():
     
     # Set application properties
     app.setApplicationName("EEG Analysis Suite")
-    app.setApplicationVersion("2.1")
+    app.setApplicationVersion("2.2")
     app.setOrganizationName("EEG Research")
     
     # Create and show main window

@@ -1,19 +1,18 @@
 """
 EEG Timeline Panel - Simplified and Modular
-Uses separate components for plot, timeline, and channel controls
+Uses separate components for plot and channel controls (timeline moved to toolbar)
 """
 
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
 from PyQt5.QtCore import pyqtSignal
 
-from gui.plots import EEGPlotWidget, TimelineControls, ChannelControls
+from gui.plots import EEGPlotWidget, ChannelControls
 
 
 class EEGTimelinePanel(QWidget):
     """Simplified EEG timeline panel using modular components"""
     
     # Signals
-    timeline_changed = pyqtSignal(float)
     channel_visibility_changed = pyqtSignal(list)
     
     def __init__(self):
@@ -40,20 +39,8 @@ class EEGTimelinePanel(QWidget):
         
         layout.addLayout(content_layout)
         
-        # Bottom: Timeline controls
-        self.timeline_controls = TimelineControls()
-        layout.addWidget(self.timeline_controls)
-        
     def setup_connections(self):
         """Setup signal connections between components"""
-        # Timeline controls to plot
-        self.timeline_controls.position_changed.connect(
-            self.eeg_plot.set_current_position
-        )
-        self.timeline_controls.position_changed.connect(
-            self.timeline_changed.emit
-        )
-        
         # Channel controls to plot
         self.channel_controls.visibility_changed.connect(
             self.eeg_plot.set_visible_channels
@@ -68,11 +55,6 @@ class EEGTimelinePanel(QWidget):
             self.eeg_plot.set_spacing
         )
         
-        # Plot to timeline (for updates)
-        self.eeg_plot.position_changed.connect(
-            self.timeline_controls.set_position
-        )
-        
     def set_processor(self, processor):
         """Set the EEG processor for all components"""
         self.processor = processor
@@ -80,10 +62,6 @@ class EEGTimelinePanel(QWidget):
         if processor:
             # Update plot
             self.eeg_plot.set_processor(processor)
-            
-            # Update timeline
-            duration = processor.get_duration()
-            self.timeline_controls.set_duration(duration)
             
             # Update channel controls
             channel_names = processor.get_channel_names()
@@ -93,10 +71,7 @@ class EEGTimelinePanel(QWidget):
         """Get currently visible channels"""
         return self.channel_controls.get_visible_channels()
         
-    def get_current_position(self):
-        """Get current timeline position"""
-        return self.timeline_controls.get_current_position()
-        
     def set_current_position(self, position):
         """Set current timeline position"""
-        self.timeline_controls.set_position(position)
+        if hasattr(self.eeg_plot, 'set_current_position'):
+            self.eeg_plot.set_current_position(position)

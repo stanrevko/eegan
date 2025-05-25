@@ -130,7 +130,7 @@ class ChannelControls(QWidget):
         return channel_name[4:] if channel_name.startswith('EEG ') else channel_name
         
     def set_channels(self, channel_names):
-        """Set available channels"""
+        """Set available channels with color coding"""
         # Clear existing checkboxes
         for checkbox in self.channel_checkboxes.values():
             checkbox.deleteLater()
@@ -141,29 +141,38 @@ class ChannelControls(QWidget):
         # Update info label
         self.channels_info_label.setText(f"📊 {self.available_channels} channels available")
         
+        # EEG plot colors (same as in EEGPlotWidget)
+        colors = ["#00bfff", "#ff4444", "#44ff44", "#ff8800", "#8844ff", 
+                 "#ff44ff", "#ffff44", "#88ffff"]
+        
         # Create checkboxes for each channel
         for i, channel_name in enumerate(channel_names):
             clean_name = self.clean_channel_name(channel_name)
+            color = colors[i % len(colors)]  # Cycle through colors
+            
             checkbox = QCheckBox(f"{i+1:2d}. {clean_name}")
             checkbox.setChecked(True)  # All channels visible by default
             checkbox.stateChanged.connect(self.on_channel_visibility_changed)
-            checkbox.setStyleSheet("""
-                QCheckBox {
-                    color: #ffffff;
+            
+            # Apply color styling to match EEG plot
+            checkbox.setStyleSheet(f"""
+                QCheckBox {{
+                    color: {color};
+                    font-weight: bold;
                     padding: 2px;
-                }
-                QCheckBox::indicator {
+                }}
+                QCheckBox::indicator {{
                     width: 16px;
                     height: 16px;
-                }
-                QCheckBox::indicator:unchecked {
+                }}
+                QCheckBox::indicator:unchecked {{
                     border: 1px solid #555555;
                     background-color: #2b2b2b;
-                }
-                QCheckBox::indicator:checked {
-                    border: 1px solid #0078d4;
-                    background-color: #0078d4;
-                }
+                }}
+                QCheckBox::indicator:checked {{
+                    border: 1px solid {color};
+                    background-color: {color};
+                }}
             """)
             
             self.channel_checkboxes[i] = checkbox

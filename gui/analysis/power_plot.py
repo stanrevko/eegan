@@ -1,6 +1,6 @@
 """
 Power Plot
-Frequency band power visualization widget
+Frequency band power visualization widget - Fixed for all bands
 """
 
 import numpy as np
@@ -20,6 +20,8 @@ class PowerPlot(QWidget):
         self.current_band = 'Alpha'
         self.current_time = 0
         self.duration = 0
+        self.timeframe_start = 0
+        self.timeframe_end = 0
         
         self.init_ui()
         
@@ -35,11 +37,19 @@ class PowerPlot(QWidget):
         # Configure plot
         self.plot_widget.showGrid(x=True, y=True, alpha=0.3)
         
+        # Constrain plot view - no negative times, no scrolling beyond data
+        self.plot_widget.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
+        
         layout.addWidget(self.plot_widget)
         
     def set_analyzer(self, analyzer):
         """Set the EEG analyzer"""
         self.analyzer = analyzer
+        if analyzer and hasattr(analyzer, 'processor') and analyzer.processor:
+            self.duration = analyzer.processor.get_duration()
+            self.timeframe_end = self.duration
+            # Set maximum X limit to data duration
+            self.plot_widget.getPlotItem().getViewBox().setLimits(xMax=self.duration)
         self.update_plot()
         
     def set_channel(self, channel_idx):
@@ -54,12 +64,20 @@ class PowerPlot(QWidget):
         
     def set_time_window(self, current_time, total_duration):
         """Set the current time window"""
-        self.current_time = current_time
+        self.current_time = max(0, current_time)  # No negative times
         self.duration = total_duration
+        # Update X limits
+        self.plot_widget.getPlotItem().getViewBox().setLimits(xMax=total_duration)
+        self.update_plot()
+        
+    def set_timeframe(self, start_time, end_time):
+        """Set analysis timeframe"""
+        self.timeframe_start = max(0, start_time)  # No negative times
+        self.timeframe_end = min(end_time, self.duration) if self.duration > 0 else end_time
         self.update_plot()
         
     def update_plot(self):
-        """Update the power plot"""
+        """Update the power plot for any frequency band"""
         if not self.analyzer:
             return
             
@@ -67,51 +85,139 @@ class PowerPlot(QWidget):
             # Clear existing plot
             self.plot_widget.clear()
             
-            # Use existing analyzer methods based on current band
-            if self.current_band == 'Alpha':
-                # Use the existing alpha power calculation
-                time_vector, power_data = self.analyzer.calculate_alpha_power_sliding(
-                    channel_idx=self.current_channel,
-                    window_length=2.0,
-                    overlap=0.5
-                )
-            else:
-                # For other bands, calculate frequency bands power
-                try:
-                    bands_power = self.analyzer.get_frequency_bands_power(
-                        channel_idx=self.current_channel
-                    )
-                    if self.current_band in bands_power:
-                        # Create a simple single-point plot for now
-                        power_value = bands_power[self.current_band]
-                        time_vector = np.array([0, self.duration if self.duration > 0 else 1])
-                        power_data = np.array([power_value, power_value])
-                    else:
-                        return
-                except:
-                    return
-            
-            if time_vector is not None and power_data is not None and len(power_data) > 0:
-                # Plot power data
-                pen = pg.mkPen(color='#ff9800', width=2)
-                self.plot_widget.plot(time_vector, power_data, pen=pen)
+            # Use the enhanced calculate_band_power method for all bands
+            if hasattr(self.analyzer, 'calculate_band_power'):
+                # Use timeframe if set, otherwise full duration
+                start_time = self.timeframe_start if self.timeframe_start > 0 or self.timeframe_end < self.duration else None
+                end_time = self.timeframe_end if self.timeframe_start > 0 or self.timeframe_end < self.duration else None
                 
-                # Add current position indicator if we have a timeline
-                if self.current_time > 0 and self.duration > 0:
-                    pos_line = pg.InfiniteLine(pos=self.current_time, angle=90, 
-                                             pen=pg.mkPen(color='#00ff00', width=2, style=2))
-                    self.plot_widget.addItem(pos_line)
+                power_data = self.analyzer.calculate_band_power(
+                    self.current_band,
+                    channel_idx=self.current_channel,
+                    start_time=start_time,
+                    end_time=end_time
+                )
+                
+                if power_data is not None and len(power_data) > 0:
+                    # Create time vector
+                    if start_time is not None and end_time is not None:
+                        time_vector = np.linspace(start_time, end_time, len(power_data))
+                    else:
+                        time_vector = np.linspace(0, self.duration, len(power_data))
                     
-                # Set reasonable Y range
-                if np.max(power_data) > 0:
-                    self.plot_widget.setYRange(0, np.max(power_data) * 1.1, padding=0)
+                    # Define band colors
+                    band_colors = {
+                        'Alpha': '#ff9800',    # Orange
+                        'Beta': '#2196f3',     # Blue  
+                        'Theta': '#9c27b0',    # Purple
+                        'Delta': '#4caf50',    # Green
+                        'Gamma': '#f44336'     # Red
+                    }
                     
-                # Set X range
-                if len(time_vector) > 1:
-                    self.plot_widget.setXRange(np.min(time_vector), np.max(time_vector), padding=0)
+                    color = band_colors.get(self.current_band, '#ff9800')
+                    pen = pg.mkPen(color=color, width=2)
+                    
+                    # Plot power data
+                    self.plot_widget.plot(time_vector, power_data, pen=pen)
+                    
+                    # Set X range (no negative times, bounded by data)
+                    x_min = max(0, np.min(time_vector))
+                    x_max = min(self.duration, np.max(time_vector)) if self.duration > 0 else np.max(time_vector)
+                    self.plot_widget.setXRange(x_min, x_max, padding=0)
+                    
+                    # Set Y range (no negative values)
+                    y_max = np.max(power_data) if len(power_data) > 0 and np.max(power_data) > 0 else 1
+                    self.plot_widget.setYRange(0, y_max * 1.1, padding=0)
+                    
+                    # Add current position indicator
+                    if self.current_time >= x_min and self.current_time <= x_max:
+                        pos_line = pg.InfiniteLine(pos=self.current_time, angle=90, 
+                                                 pen=pg.mkPen(color='#00ff00', width=2, style=2))
+                        self.plot_widget.addItem(pos_line)
+                        
+                    # Add timeframe boundary lines if using custom timeframe
+                    if start_time is not None and end_time is not None:
+                        start_line = pg.InfiniteLine(pos=start_time, angle=90, 
+                                                   pen=pg.mkPen(color='#00ff00', width=1, style=3))
+                        end_line = pg.InfiniteLine(pos=end_time, angle=90, 
+                                                 pen=pg.mkPen(color='#ff0000', width=1, style=3))
+                        self.plot_widget.addItem(start_line)
+                        self.plot_widget.addItem(end_line)
+                        
+            else:
+                # Fallback for older analyzer
+                if self.current_band == 'Alpha':
+                    time_vector, power_data = self.analyzer.calculate_alpha_power_sliding(
+                        channel_idx=self.current_channel,
+                        window_length=2.0,
+                        overlap=0.5
+                    )
+                    
+                    if time_vector is not None and power_data is not None and len(power_data) > 0:
+                        pen = pg.mkPen(color='#ff9800', width=2)
+                        self.plot_widget.plot(time_vector, power_data, pen=pen)
+                        
+                        # Constrain ranges
+                        x_min = max(0, np.min(time_vector))
+                        x_max = min(self.duration, np.max(time_vector)) if self.duration > 0 else np.max(time_vector)
+                        self.plot_widget.setXRange(x_min, x_max, padding=0)
+                        
+                        y_max = np.max(power_data) if np.max(power_data) > 0 else 1
+                        self.plot_widget.setYRange(0, y_max * 1.1, padding=0)
                 
         except Exception as e:
             print(f"Error updating power plot: {e}")
+            import traceback
+            traceback.print_exc()
+            
+    def update_power_data(self, power_data, start_time, end_time):
+        """Update plot with specific power data and timeframe"""
+        if power_data is None or len(power_data) == 0:
+            return
+            
+        try:
+            # Clear existing plot
+            self.plot_widget.clear()
+            
+            # Ensure no negative times
+            start_time = max(0, start_time)
+            end_time = max(start_time + 0.1, end_time)
+            
+            # Create time vector for the timeframe
+            time_vector = np.linspace(start_time, end_time, len(power_data))
+            
+            # Band colors
+            band_colors = {
+                'Alpha': '#ff9800',    # Orange
+                'Beta': '#2196f3',     # Blue  
+                'Theta': '#9c27b0',    # Purple
+                'Delta': '#4caf50',    # Green
+                'Gamma': '#f44336'     # Red
+            }
+            
+            color = band_colors.get(self.current_band, '#ff9800')
+            pen = pg.mkPen(color=color, width=2)
+            
+            # Plot power data
+            self.plot_widget.plot(time_vector, power_data, pen=pen)
+            
+            # Set X range (no negative times, bounded by data)
+            self.plot_widget.setXRange(start_time, min(end_time, self.duration) if self.duration > 0 else end_time, padding=0)
+            
+            # Set Y range (no negative values)
+            y_max = np.max(power_data) if np.max(power_data) > 0 else 1
+            self.plot_widget.setYRange(0, y_max * 1.1, padding=0)
+                
+            # Add timeframe boundary lines
+            start_line = pg.InfiniteLine(pos=start_time, angle=90, 
+                                       pen=pg.mkPen(color='#00ff00', width=1, style=3))
+            end_line = pg.InfiniteLine(pos=end_time, angle=90, 
+                                     pen=pg.mkPen(color='#ff0000', width=1, style=3))
+            self.plot_widget.addItem(start_line)
+            self.plot_widget.addItem(end_line)
+            
+        except Exception as e:
+            print(f"Error updating power data: {e}")
             
     def clear_plot(self):
         """Clear the plot"""

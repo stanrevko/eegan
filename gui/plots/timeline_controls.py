@@ -68,6 +68,7 @@ class TimelineControls(QWidget):
         
     def set_position(self, position):
         """Set current position"""
+        # Ensure position is within bounds (0 to total_duration)
         self.current_position = max(0, min(position, self.total_duration))
         
         # Update slider without triggering signal
@@ -77,16 +78,15 @@ class TimelineControls(QWidget):
             self.timeline_slider.setValue(slider_value)
             self.timeline_slider.blockSignals(False)
             
-        self.update_position_display()
-        
+        self.update_position_display()        
     def on_slider_changed(self, value):
         """Handle slider value changes"""
         if self.total_duration > 0:
             new_position = (value / 1000.0) * self.total_duration
-            self.current_position = new_position
+            # Ensure position stays within bounds
+            self.current_position = max(0, min(new_position, self.total_duration))
             self.update_position_display()
-            self.position_changed.emit(self.current_position)
-            
+            self.position_changed.emit(self.current_position)            
     def update_position_display(self):
         """Update position display"""
         self.position_label.setText(f"{self.current_position:.1f}s / {self.total_duration:.1f}s")
