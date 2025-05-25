@@ -1,6 +1,6 @@
 """
-EEG Timeline Panel Module - Clean channel names
-Full timeline EEG display with cleaned channel names (no "EEG" prefix)
+EEG Timeline Panel Module - Simplified clean version
+Full timeline with proper X-axis limits matching recording duration
 """
 
 import numpy as np
@@ -12,9 +12,8 @@ from utils.ui_helpers import setup_dark_plot, create_styled_button
 
 
 class EEGTimelinePanel(QWidget):
-    """Enhanced EEG timeline panel with clean channel names"""
+    """EEG timeline panel with proper recording duration limits"""
     
-    # Signals
     timeline_changed = pyqtSignal(float)
     channel_visibility_changed = pyqtSignal(list)
     
@@ -28,26 +27,21 @@ class EEGTimelinePanel(QWidget):
         self.channel_spacing = 3
         self.channel_checkboxes = {}
         self.available_channels = 0
-        
         self.init_ui()
         
     def clean_channel_name(self, channel_name):
         """Remove 'EEG' prefix from channel names"""
-        if channel_name.startswith('EEG '):
-            return channel_name[4:]  # Remove 'EEG ' (4 characters)
-        return channel_name
+        return channel_name[4:] if channel_name.startswith('EEG ') else channel_name
         
     def init_ui(self):
         """Initialize the UI"""
         layout = QVBoxLayout(self)
         
-        # Header with controls
+        # Header
         header_layout = QHBoxLayout()
-        
         title = QLabel("🧠 EEG Signal Visualization (Full Timeline)")
         title.setStyleSheet("font-weight: bold; font-size: 14px; color: #ffffff;")
         header_layout.addWidget(title)
-        
         header_layout.addStretch()
         
         # Scale control
@@ -88,35 +82,32 @@ class EEGTimelinePanel(QWidget):
         self.channel_controls_widget = self.create_channel_controls()
         self.channel_controls_widget.setVisible(False)
         content_layout.addWidget(self.channel_controls_widget)
-        
         layout.addLayout(content_layout)
         
         # Timeline controls
         timeline_group = QGroupBox("Timeline Controls")
-        timeline_group.setStyleSheet("""
-            QGroupBox {
-                color: #ffffff;
-                border: 1px solid #555555;
-                border-radius: 4px;
-                margin-top: 10px;
-                padding-top: 10px;
-            }
-        """)
+        timeline_group.setStyleSheet("QGroupBox { color: #ffffff; border: 1px solid #555555; border-radius: 4px; margin-top: 10px; padding-top: 10px; }")
         
         timeline_layout = QHBoxLayout(timeline_group)
         
-        # Position label
         self.position_label = QLabel("0.0s / 0.0s")
         self.position_label.setStyleSheet("color: #cccccc;")
         timeline_layout.addWidget(self.position_label)
         
-        # Timeline slider
         self.timeline_slider = QSlider(Qt.Horizontal)
         self.timeline_slider.setRange(0, 100)
         self.timeline_slider.setValue(0)
         self.timeline_slider.valueChanged.connect(self.on_timeline_changed)
         self.timeline_slider.setEnabled(False)
         timeline_layout.addWidget(self.timeline_slider, stretch=2)
+        
+        start_btn = create_styled_button("⏮ Start", "secondary")
+        start_btn.clicked.connect(lambda: self.timeline_slider.setValue(0))
+        timeline_layout.addWidget(start_btn)
+        
+        end_btn = create_styled_button("⏭ End", "secondary")
+        end_btn.clicked.connect(lambda: self.timeline_slider.setValue(int(self.total_duration * 10)) if self.processor else None)
+        timeline_layout.addWidget(end_btn)
         
         layout.addWidget(timeline_group)
         
@@ -126,28 +117,20 @@ class EEGTimelinePanel(QWidget):
         layout.addWidget(self.info_label)
         
     def create_channel_controls(self):
-        """Create enhanced channel visibility controls"""
+        """Create channel visibility controls"""
         widget = QWidget()
         widget.setMaximumWidth(280)
         widget.setMinimumHeight(500)
-        widget.setStyleSheet("""
-            QWidget {
-                background-color: #3c3c3c;
-                border: 1px solid #555555;
-                border-radius: 4px;
-            }
-        """)
+        widget.setStyleSheet("QWidget { background-color: #3c3c3c; border: 1px solid #555555; border-radius: 4px; }")
         
         layout = QVBoxLayout(widget)
         
-        # Title with channel count
         self.channel_title = QLabel("Channel Visibility")
         self.channel_title.setStyleSheet("color: #ffffff; font-weight: bold; padding: 8px; font-size: 13px;")
         layout.addWidget(self.channel_title)
         
-        # All/None buttons
+        # Control buttons
         button_layout = QHBoxLayout()
-        
         self.select_all_btn = create_styled_button("All", "secondary")
         self.select_all_btn.clicked.connect(self.select_all_channels)
         button_layout.addWidget(self.select_all_btn)
@@ -156,52 +139,26 @@ class EEGTimelinePanel(QWidget):
         self.select_none_btn.clicked.connect(self.select_no_channels)
         button_layout.addWidget(self.select_none_btn)
         
-        # Available channels button
-        self.available_only_btn = create_styled_button("Available", "secondary")
-        self.available_only_btn.clicked.connect(self.select_available_channels)
-        button_layout.addWidget(self.available_only_btn)
-        
         layout.addLayout(button_layout)
         
-        # Info about available channels
         self.channel_info_label = QLabel("0/0 channels available")
-        self.channel_info_label.setStyleSheet("color: #cccccc; font-size: 11px; padding: 4px; text-align: center;")
+        self.channel_info_label.setStyleSheet("color: #cccccc; font-size: 11px; padding: 4px;")
         layout.addWidget(self.channel_info_label)
         
         # Scrollable channel list
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setMinimumHeight(350)
-        scroll_area.setStyleSheet("""
-            QScrollArea { 
-                border: none; 
-                background-color: #2b2b2b;
-            }
-            QScrollBar:vertical {
-                background-color: #3c3c3c;
-                width: 12px;
-                border-radius: 6px;
-            }
-            QScrollBar::handle:vertical {
-                background-color: #0078d4;
-                border-radius: 6px;
-                min-height: 20px;
-            }
-            QScrollBar::handle:vertical:hover {
-                background-color: #106ebe;
-            }
-        """)
         
         self.channel_checkboxes_widget = QWidget()
         self.channel_checkboxes_layout = QVBoxLayout(self.channel_checkboxes_widget)
-        
         scroll_area.setWidget(self.channel_checkboxes_widget)
         layout.addWidget(scroll_area)
         
         return widget
         
     def set_processor(self, processor):
-        """Set the EEG processor"""
+        """Set the EEG processor and configure timeline bounds"""
         self.processor = processor
         
         if processor:
@@ -211,9 +168,10 @@ class EEGTimelinePanel(QWidget):
             self.timeline_slider.setValue(0)
             self.current_position = 0
             
-            # Get actual number of channels in file
-            self.available_channels = len(processor.get_channel_names())
+            # Set plot X-axis limits to exact recording duration
+            self.eeg_plot.setLimits(xMin=0, xMax=self.total_duration, yMin=0)
             
+            self.available_channels = len(processor.get_channel_names())
             self.setup_channel_controls()
             self.update_timeline_display()
             
@@ -222,10 +180,9 @@ class EEGTimelinePanel(QWidget):
             self.info_label.setText(info_text)
         else:
             self.timeline_slider.setEnabled(False)
-            self.info_label.setText("Load an EEG file to view full timeline")
             
     def setup_channel_controls(self):
-        """Setup enhanced channel checkboxes with clean names"""
+        """Setup channel checkboxes"""
         if not self.processor:
             return
             
@@ -234,102 +191,27 @@ class EEGTimelinePanel(QWidget):
             checkbox.deleteLater()
         self.channel_checkboxes.clear()
         
-        # Get actual channel names from file
         actual_channel_names = self.processor.get_channel_names()
-        
-        # Standard channel names without "EEG" prefix
-        standard_channels = [
-            'Fp1', 'Fp2', 'F3', 'F4', 'C3', 'C4', 
-            'P3', 'P4', 'O1', 'O2', 'F7', 'F8', 
-            'T3', 'T4', 'T5', 'T6', 'Fz', 'Cz', 
-            'Pz', 'A1', 'A2', 'Pg1', 'Pg2'
-        ]
-        
         colors = ['#00bfff', '#ff4444', '#44ff44', '#ff8800', '#8844ff', '#ff44ff', '#ffff44', '#88ffff']
         
-        # Create checkboxes for all standard channels
-        for i, standard_name in enumerate(standard_channels):
-            checkbox = QCheckBox(standard_name)
-            
-            # Check if this channel exists in the actual file
-            channel_exists = i < len(actual_channel_names)
-            
-            if channel_exists:
-                # Channel exists - use clean name from file
-                clean_name = self.clean_channel_name(actual_channel_names[i])
-                checkbox.setText(clean_name)
-                
-                # Normal styling and functionality
-                checkbox.setEnabled(True)
-                checkbox.setChecked(i < 8)  # First 8 visible by default
-                checkbox.setStyleSheet(f"""
-                    QCheckBox {{
-                        color: {colors[i % len(colors)]};
-                        font-weight: bold;
-                        padding: 6px;
-                        font-size: 12px;
-                    }}
-                    QCheckBox::indicator {{
-                        width: 18px;
-                        height: 18px;
-                    }}
-                    QCheckBox::indicator:checked {{
-                        background-color: {colors[i % len(colors)]};
-                        border: 2px solid {colors[i % len(colors)]};
-                        border-radius: 3px;
-                    }}
-                    QCheckBox::indicator:unchecked {{
-                        background-color: #3c3c3c;
-                        border: 2px solid #555555;
-                        border-radius: 3px;
-                    }}
-                """)
-            else:
-                # Channel doesn't exist - disabled styling
-                checkbox.setEnabled(False)
-                checkbox.setChecked(False)
-                checkbox.setText(f"{standard_name} (not available)")
-                checkbox.setStyleSheet(f"""
-                    QCheckBox {{
-                        color: #666666;
-                        font-weight: normal;
-                        padding: 6px;
-                        font-size: 12px;
-                    }}
-                    QCheckBox::indicator {{
-                        width: 18px;
-                        height: 18px;
-                        background-color: #2b2b2b;
-                        border: 2px solid #444444;
-                        border-radius: 3px;
-                    }}
-                """)
-            
+        for i, channel_name in enumerate(actual_channel_names):
+            clean_name = self.clean_channel_name(channel_name)
+            checkbox = QCheckBox(clean_name)
+            checkbox.setEnabled(True)
+            checkbox.setChecked(i < 8)  # First 8 visible
+            checkbox.setStyleSheet(f"QCheckBox {{ color: {colors[i % len(colors)]}; font-weight: bold; padding: 6px; font-size: 12px; }}")
             checkbox.stateChanged.connect(self.on_channel_visibility_changed)
             
             self.channel_checkboxes[i] = checkbox
             self.channel_checkboxes_layout.addWidget(checkbox)
             
-        # Update title and info
-        available_count = len(actual_channel_names)
-        total_standard = len(standard_channels)
-        
-        self.channel_title.setText(f"Channel Visibility ({available_count}/{total_standard})")
-        self.channel_info_label.setText(f"{available_count} channels available in file")
-        
-        # Update visible channels list
+        self.channel_title.setText(f"Channel Visibility ({len(actual_channel_names)})")
+        self.channel_info_label.setText(f"{len(actual_channel_names)} channels available")
         self.update_visible_channels()
         
     def update_visible_channels(self):
-        """Update visible channels list (only for available channels)"""
-        self.visible_channels = []
-        
-        for i, checkbox in self.channel_checkboxes.items():
-            if checkbox.isEnabled() and checkbox.isChecked():
-                # Only include channels that exist in the file
-                if i < self.available_channels:
-                    self.visible_channels.append(i)
-        
+        """Update visible channels list"""
+        self.visible_channels = [i for i, checkbox in self.channel_checkboxes.items() if checkbox.isChecked()]
         self.channel_visibility_changed.emit(self.visible_channels)
         self.update_timeline_display()
         
@@ -338,23 +220,14 @@ class EEGTimelinePanel(QWidget):
         self.update_visible_channels()
         
     def select_all_channels(self):
-        """Select all available channels"""
-        for i, checkbox in self.channel_checkboxes.items():
-            if checkbox.isEnabled():  # Only select available channels
-                checkbox.setChecked(True)
+        """Select all channels"""
+        for checkbox in self.channel_checkboxes.values():
+            checkbox.setChecked(True)
             
     def select_no_channels(self):
         """Deselect all channels"""
         for checkbox in self.channel_checkboxes.values():
             checkbox.setChecked(False)
-            
-    def select_available_channels(self):
-        """Select only the available channels"""
-        for i, checkbox in self.channel_checkboxes.items():
-            if checkbox.isEnabled():  # Available channel
-                checkbox.setChecked(i < 8)  # First 8 available channels
-            else:  # Unavailable channel
-                checkbox.setChecked(False)
                 
     def toggle_channel_controls(self, visible):
         """Toggle channel controls visibility"""
@@ -369,24 +242,22 @@ class EEGTimelinePanel(QWidget):
     def on_timeline_changed(self, value):
         """Handle timeline change"""
         if self.processor:
-            self.current_position = value / 10.0
+            self.current_position = min(value / 10.0, self.total_duration)
             self.position_label.setText(f"{self.current_position:.1f}s / {self.total_duration:.1f}s")
             self.timeline_changed.emit(self.current_position)
             
     def update_timeline_display(self):
-        """Update the EEG display with clean channel names"""
+        """Update the EEG display"""
         if not self.processor or not self.visible_channels:
             self.eeg_plot.clear()
             return
             
         try:
-            # Get full data
             data, times = self.processor.raw.get_data(return_times=True)
             data_uv = data * 1e6
             
             self.eeg_plot.clear()
             
-            # Plot visible channels
             colors = ['#00bfff', '#ff4444', '#44ff44', '#ff8800', '#8844ff', '#ff44ff', '#ffff44', '#88ffff']
             channel_names = self.processor.get_channel_names()
             
@@ -396,19 +267,17 @@ class EEGTimelinePanel(QWidget):
                     normalized_signal = (data_uv[channel_idx] / self.eeg_scale) * 0.8 + y_offset
                     
                     color = colors[channel_idx % len(colors)]
-                    self.eeg_plot.plot(times, normalized_signal, 
-                                     pen=pg.mkPen(color=color, width=1))
+                    self.eeg_plot.plot(times, normalized_signal, pen=pg.mkPen(color=color, width=1))
                     
-                    # Channel label with clean name (no "EEG" prefix)
                     clean_name = self.clean_channel_name(channel_names[channel_idx])
-                    text_item = pg.TextItem(clean_name, 
-                                          color=color, anchor=(0, 0.5))
+                    text_item = pg.TextItem(clean_name, color=color, anchor=(0, 0.5))
                     self.eeg_plot.addItem(text_item)
                     text_item.setPos(times[0], y_offset)
             
-            # Set ranges - no negative values
             if times.size > 0:
-                self.eeg_plot.setXRange(0, times[-1])
+                # X-axis: 0 to exact recording duration
+                self.eeg_plot.setXRange(0, self.total_duration)
+                
                 max_y = len(self.visible_channels) * self.channel_spacing + self.channel_spacing
                 self.eeg_plot.setYRange(0, max_y)
                 
@@ -418,3 +287,11 @@ class EEGTimelinePanel(QWidget):
     def get_visible_channels(self):
         """Get visible channel indices"""
         return self.visible_channels.copy()
+        
+    def get_current_position(self):
+        """Get current timeline position"""
+        return self.current_position
+        
+    def get_total_duration(self):
+        """Get total recording duration"""
+        return self.total_duration

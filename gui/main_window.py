@@ -1,6 +1,6 @@
 """
-Enhanced Main Window - Fixed sidebar toggle
-Modular EEG analysis application with persistent sidebar toggle
+Enhanced Main Window - Simplified layout
+EEG timeline + Alpha analysis only (spectrum hidden)
 """
 
 import sys
@@ -22,7 +22,6 @@ from utils.ui_helpers import create_styled_button, create_collapsible_button
 from gui.file_panel import FilePanel
 from gui.eeg_timeline_panel import EEGTimelinePanel
 from gui.analysis_panel import AnalysisPanel
-from gui.spectrum_panel import SpectrumPanel
 
 
 class EEGLoadThread(QThread):
@@ -62,7 +61,7 @@ class EEGLoadThread(QThread):
 
 
 class MainWindow(QMainWindow):
-    """Enhanced main window with fixed sidebar toggle"""
+    """Enhanced main window - simplified layout"""
     
     def __init__(self):
         super().__init__()
@@ -82,9 +81,9 @@ class MainWindow(QMainWindow):
         self.restore_window_state()
         
     def init_ui(self):
-        """Initialize the enhanced user interface"""
+        """Initialize the simplified user interface"""
         # Window setup
-        self.setWindowTitle("🧠 EEG Analysis Suite - Enhanced & Modular")
+        self.setWindowTitle("🧠 EEG Analysis Suite - Timeline + Band Analysis")
         
         # Apply dark theme
         self.setStyleSheet("""
@@ -152,7 +151,7 @@ class MainWindow(QMainWindow):
         
         # Status bar
         self.statusBar().setStyleSheet("background-color: #2b2b2b; color: #ffffff;")
-        self.statusBar().showMessage("🧠 Enhanced EEG Analysis Suite - Ready for auto-loading files")
+        self.statusBar().showMessage("🧠 EEG Analysis Suite - Timeline + Band Analysis")
         
         # Progress bar (initially hidden)
         self.progress_bar = QProgressBar()
@@ -207,7 +206,7 @@ class MainWindow(QMainWindow):
         self.file_panel.setVisible(self.sidebar_visible)
         
     def create_analysis_area(self):
-        """Create the main analysis area with 3 panels"""
+        """Create simplified 2-panel analysis area (EEG + Band Analysis only)"""
         analysis_widget = QWidget()
         analysis_layout = QVBoxLayout(analysis_widget)
         analysis_layout.setContentsMargins(0, 0, 0, 0)
@@ -216,36 +215,19 @@ class MainWindow(QMainWindow):
         self.analysis_splitter = QSplitter(Qt.Vertical)
         analysis_layout.addWidget(self.analysis_splitter)
         
-        # TOP: EEG Timeline Panel (with embedded controls)
+        # TOP: EEG Timeline Panel (larger portion)
         self.eeg_panel = EEGTimelinePanel()
         self.eeg_panel.timeline_changed.connect(self.on_timeline_changed)
         self.eeg_panel.channel_visibility_changed.connect(self.on_channel_visibility_changed)
         self.analysis_splitter.addWidget(self.eeg_panel)
         
-        # BOTTOM: Analysis panels (horizontal split)
-        bottom_widget = QWidget()
-        bottom_layout = QHBoxLayout(bottom_widget)
-        bottom_layout.setContentsMargins(0, 0, 0, 0)
-        
-        self.bottom_splitter = QSplitter(Qt.Horizontal)
-        bottom_layout.addWidget(self.bottom_splitter)
-        
-        # LEFT: Configurable frequency band analysis
+        # BOTTOM: Band Analysis Panel (smaller portion)
         self.analysis_panel = AnalysisPanel()
         self.analysis_panel.band_changed.connect(self.on_frequency_band_changed)
-        self.bottom_splitter.addWidget(self.analysis_panel)
+        self.analysis_splitter.addWidget(self.analysis_panel)
         
-        # RIGHT: Spectrum analysis
-        self.spectrum_panel = SpectrumPanel()
-        self.bottom_splitter.addWidget(self.spectrum_panel)
-        
-        # Set bottom splitter proportions
-        self.bottom_splitter.setSizes([600, 600])
-        
-        self.analysis_splitter.addWidget(bottom_widget)
-        
-        # Set vertical splitter proportions
-        self.analysis_splitter.setSizes([600, 400])
+        # Set vertical splitter proportions (EEG gets more space)
+        self.analysis_splitter.setSizes([700, 300])
         
         self.main_splitter.addWidget(analysis_widget)
         
@@ -286,7 +268,7 @@ class MainWindow(QMainWindow):
             self.sidebar_action.setText("📁 Show Sidebar")
             
     def auto_load_file(self, file_path):
-        """Auto-load selected file (main feature!)"""
+        """Auto-load selected file"""
         if not os.path.exists(file_path):
             QMessageBox.warning(self, "Error", "File not found")
             return
@@ -336,7 +318,7 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(message)
             
     def update_all_panels(self):
-        """Update all analysis panels with new data"""
+        """Update analysis panels with new data"""
         if not self.processor or not self.analyzer:
             return
             
@@ -344,18 +326,16 @@ class MainWindow(QMainWindow):
             # Update EEG timeline panel
             self.eeg_panel.set_processor(self.processor)
             
-            # Update analysis panels
+            # Update analysis panel
             self.analysis_panel.set_analyzer(self.analyzer)
-            self.spectrum_panel.set_analyzer(self.analyzer)
             
             # Set initial channel (first visible channel)
             visible_channels = self.eeg_panel.get_visible_channels()
             if visible_channels:
                 initial_channel = visible_channels[0]
                 self.analysis_panel.set_channel(initial_channel)
-                self.spectrum_panel.set_channel(initial_channel)
                 
-            self.statusBar().showMessage("✅ All panels updated - Full analysis ready!")
+            self.statusBar().showMessage("✅ EEG timeline and band analysis ready!")
             
         except Exception as e:
             error_msg = f"Error updating panels: {str(e)}"
@@ -363,21 +343,23 @@ class MainWindow(QMainWindow):
             print(error_msg)
             
     def on_timeline_changed(self, position):
-        """Handle timeline position changes"""
-        # Timeline changes could trigger updates to analysis if needed
-        pass
-        
+        """Handle timeline position changes - sync with analysis"""
+        if self.analysis_panel and self.processor:
+            # Get current time window from EEG panel
+            current_time = self.eeg_panel.get_current_position()
+            duration = self.processor.get_duration()
+            
+            # Update analysis panel to sync with timeline
+            self.analysis_panel.set_time_window(current_time, duration)
+            
     def on_channel_visibility_changed(self, visible_channels):
         """Handle channel visibility changes"""
         if visible_channels and self.analyzer:
-            # Update analysis panels to use first visible channel
+            # Update analysis panel to use first visible channel
             self.analysis_panel.set_channel(visible_channels[0])
-            self.spectrum_panel.set_channel(visible_channels[0])
             
     def on_frequency_band_changed(self, band_name):
         """Handle frequency band changes"""
-        # Optionally highlight the band on spectrum
-        self.spectrum_panel.highlight_frequency_band(band_name)
         self.statusBar().showMessage(f"📊 Switched to {band_name} band analysis")
         
     def on_folder_changed(self, folder_path):
@@ -415,7 +397,7 @@ def main():
     
     # Set application properties
     app.setApplicationName("EEG Analysis Suite")
-    app.setApplicationVersion("2.0")
+    app.setApplicationVersion("2.1")
     app.setOrganizationName("EEG Research")
     
     # Create and show main window

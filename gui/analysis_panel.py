@@ -1,6 +1,6 @@
 """
-Analysis Panel Module
-Configurable frequency band analysis (Alpha/Beta/Theta/Delta)
+Analysis Panel Module - Synced with EEG timeline
+Configurable frequency band analysis synchronized with EEG visualization
 """
 
 import numpy as np
@@ -13,16 +13,18 @@ from utils.ui_helpers import setup_dark_plot
 
 
 class AnalysisPanel(QWidget):
-    """Configurable frequency band analysis panel"""
+    """Configurable frequency band analysis panel synced with EEG timeline"""
     
     # Signals
-    band_changed = pyqtSignal(str)  # Emitted when frequency band changes
+    band_changed = pyqtSignal(str)
     
     def __init__(self):
         super().__init__()
         self.analyzer = None
         self.frequency_bands = FrequencyBands()
         self.current_channel = 0
+        self.current_time_start = 0
+        self.current_duration = 0
         
         self.init_ui()
         
@@ -77,7 +79,7 @@ class AnalysisPanel(QWidget):
         self.analysis_plot = pg.PlotWidget(background='#2b2b2b')
         setup_dark_plot(self.analysis_plot, 'Time (seconds)', 'Power (μV²)')
         
-        # Configure plot for analysis data - no negative values
+        # Configure plot for analysis data - no negative values, sync with EEG timeline
         self.analysis_plot.setLimits(xMin=0, yMin=0)
         
         layout.addWidget(self.analysis_plot)
@@ -106,7 +108,7 @@ class AnalysisPanel(QWidget):
         info_layout = QVBoxLayout(info_group)
         
         # Analysis parameters
-        self.params_label = QLabel("Window: 2s, Overlap: 0.5s")
+        self.params_label = QLabel("Window: 2s, Overlap: 0.5s | Time frame: Full recording")
         self.params_label.setStyleSheet("color: #cccccc; font-size: 11px; padding: 4px;")
         info_layout.addWidget(self.params_label)
         
@@ -125,12 +127,26 @@ class AnalysisPanel(QWidget):
     def set_analyzer(self, analyzer):
         """Set the EEG analyzer"""
         self.analyzer = analyzer
+        if analyzer and analyzer.processor:
+            self.current_duration = analyzer.processor.get_duration()
+            self.update_params_label()
         self.update_analysis()
         
     def set_channel(self, channel_idx: int):
         """Set the channel for analysis"""
         self.current_channel = channel_idx
         self.update_analysis()
+        
+    def set_time_window(self, start_time: float, total_duration: float):
+        """Set the time window for analysis (synced with EEG timeline)"""
+        self.current_time_start = start_time
+        self.current_duration = total_duration
+        self.update_params_label()
+        
+    def update_params_label(self):
+        """Update the parameters label with current time frame"""
+        if self.current_duration > 0:
+            self.params_label.setText(f"Window: 2s, Overlap: 0.5s | Time frame: 0 - {self.current_duration:.1f}s (Full recording)")
         
     def on_band_changed(self, band_name: str):
         """Handle frequency band change"""
@@ -150,7 +166,7 @@ class AnalysisPanel(QWidget):
         self.band_changed.emit(band_name)
         
     def update_analysis(self):
-        """Update the frequency band analysis"""
+        """Update the frequency band analysis for full recording"""
         if not self.analyzer:
             self.analysis_plot.clear()
             return
@@ -159,7 +175,7 @@ class AnalysisPanel(QWidget):
             active_band = self.frequency_bands.get_active_band()
             low_freq, high_freq, color = self.frequency_bands.get_band_info(active_band)
             
-            # Calculate power for the selected frequency band
+            # Calculate power for the selected frequency band across full recording
             times, powers = self.calculate_band_power(low_freq, high_freq)
             
             if times is not None and powers is not None:
@@ -167,11 +183,17 @@ class AnalysisPanel(QWidget):
                 self.analysis_plot.clear()
                 self.analysis_plot.plot(times, powers,
                                       pen=pg.mkPen(color=color, width=2),
-                                      symbol='o', symbolSize=4, symbolBrush=color)
+                                      symbol='o', symbolSize=3, symbolBrush=color)
                 
-                # Set plot ranges - start from 0,0
-                self.analysis_plot.setXRange(0, times[-1])
-                self.analysis_plot.setYRange(0, np.max(powers) * 1.1)
+                # Set plot ranges to match EEG timeline (0 to recording duration)
+                if self.current_duration > 0:
+                    self.analysis_plot.setXRange(0, self.current_duration)
+                    # Set plot limits to match recording duration
+                    self.analysis_plot.setLimits(xMin=0, xMax=self.current_duration, yMin=0)
+                else:
+                    self.analysis_plot.setXRange(0, times[-1] if len(times) > 0 else 10)
+                    
+                self.analysis_plot.setYRange(0, np.max(powers) * 1.1 if len(powers) > 0 else 1)
                 
                 # Update statistics
                 self.update_statistics(times, powers, active_band)
@@ -183,12 +205,12 @@ class AnalysisPanel(QWidget):
             self.stats_label.setText(f"Analysis error: {str(e)}")
             
     def calculate_band_power(self, low_freq: float, high_freq: float):
-        """Calculate power for a specific frequency band"""
+        """Calculate power for a specific frequency band across full recording"""
         if not self.analyzer or not self.analyzer.processor:
             return None, None
             
         try:
-            # Get the raw data
+            # Get the raw data for full recording
             data, times = self.analyzer.processor.raw.get_data(return_times=True)
             if data is None:
                 return None, None
@@ -207,7 +229,7 @@ class AnalysisPanel(QWidget):
             # Get signal for current channel
             signal_data = data[self.current_channel] * 1e6  # Convert to μV
             
-            # Calculate sliding window power for specific band
+            # Calculate sliding window power for specific band across full recording
             from scipy.signal import welch
             
             band_powers = []
@@ -234,7 +256,7 @@ class AnalysisPanel(QWidget):
             return None, None
             
     def update_statistics(self, times, powers, band_name):
-        """Update statistics display"""
+        """Update statistics display for full recording"""
         try:
             mean_power = np.mean(powers)
             std_power = np.std(powers)
@@ -242,24 +264,14 @@ class AnalysisPanel(QWidget):
             min_power = np.min(powers)
             n_windows = len(powers)
             
-            # Calculate relative power (if we have access to total power)
-            relative_power = "N/A"
-            try:
-                if hasattr(self.analyzer, 'get_frequency_bands_power'):
-                    bands_power = self.analyzer.get_frequency_bands_power(self.current_channel)
-                    if bands_power:
-                        total_power = sum(bands_power.values())
-                        band_key = f"{band_name} ({self.frequency_bands.get_band_range(band_name)[0]}-{self.frequency_bands.get_band_range(band_name)[1]} Hz)"
-                        if band_key in bands_power and total_power > 0:
-                            relative_power = f"{(bands_power[band_key] / total_power) * 100:.1f}%"
-            except:
-                pass
-                
+            # Calculate time coverage
+            time_span = times[-1] - times[0] if len(times) > 1 else 0
+            
             stats_text = (f"Mean: {mean_power:.2f} μV² | "
                          f"Max: {max_power:.2f} μV² | "
                          f"Std: {std_power:.2f} μV² | "
                          f"Windows: {n_windows} | "
-                         f"Relative: {relative_power}")
+                         f"Coverage: {time_span:.1f}s")
             
             self.stats_label.setText(stats_text)
             
