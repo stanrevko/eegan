@@ -20,6 +20,7 @@ class AnalysisControls(QWidget):
         self.window_size = 2.0
         self.step_size = 0.5
         self.current_channel = 0
+        self._updating_programmatically = False
         
         self.init_ui()
         
@@ -110,7 +111,8 @@ class AnalysisControls(QWidget):
         """Set current channel"""
         self.current_channel = channel_idx
         self.channel_label.setText(f"Channel: {channel_idx}")
-        self.channel_changed.emit(channel_idx)
+        if not self._updating_programmatically:
+            self.channel_changed.emit(channel_idx)
         
     def get_window_size(self):
         """Get window size"""

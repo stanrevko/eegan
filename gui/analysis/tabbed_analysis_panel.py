@@ -6,7 +6,7 @@ Main analysis panel with tabs for different analysis tools
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel, QGroupBox
 from PyQt5.QtCore import pyqtSignal
 
-from gui.analysis import BandSelector, PowerPlot, AnalysisControls
+from gui.analysis import BandSelector, ChannelSelector, PowerPlot, AnalysisControls
 from gui.analysis.band_spikes import BandSpikes
 from gui.analysis.all_bands_power import AllBandsPower
 
@@ -27,6 +27,7 @@ class TabbedAnalysisPanel(QWidget):
         
         self.init_ui()
         self.setup_connections()
+        
         
     def init_ui(self):
         """Initialize the tabbed UI"""
@@ -55,6 +56,11 @@ class TabbedAnalysisPanel(QWidget):
         
         header_layout.addStretch()
         
+        # Channel selector
+        self.channel_selector = ChannelSelector()
+        header_layout.addWidget(self.channel_selector)
+        
+        header_layout.addStretch()
         # Shared band selector
         self.band_selector = BandSelector()
         header_layout.addWidget(self.band_selector)
@@ -131,6 +137,9 @@ class TabbedAnalysisPanel(QWidget):
         
     def setup_connections(self):
         """Setup signal connections between components"""
+        # Channel selector affects all tabs
+        self.channel_selector.channel_changed.connect(self.on_channel_changed)
+        
         # Band selector affects all tabs
         self.band_selector.band_changed.connect(self.on_band_changed)
         self.band_selector.band_changed.connect(self.power_plot.set_band)
@@ -150,9 +159,36 @@ class TabbedAnalysisPanel(QWidget):
         band_info = self.band_selector.get_band_info(band_name)
         if band_info:
             low_freq, high_freq, color = band_info
-            self.title_label.setText(f"⚡ {band_name} Power ({low_freq}-{high_freq}Hz)")
+            channel_name = self.channel_selector.get_current_channel_name()
+            if channel_name:
+                self.title_label.setText(f"⚡ {band_name} Power ({low_freq}-{high_freq}Hz) - Channel: {channel_name}")
+            else:
+                self.title_label.setText(f"⚡ {band_name} Power ({low_freq}-{high_freq}Hz)")
             self.title_label.setStyleSheet(f"font-weight: bold; font-size: 14px; color: {color};")
             
+    def on_channel_changed(self, channel_idx):
+        """Handle channel selection changes"""
+        self.current_channel = channel_idx
+        
+        # Update title to show current channel
+        channel_name = self.channel_selector.get_current_channel_name()
+        current_band = self.band_selector.get_current_band()
+        band_info = self.band_selector.get_band_info(current_band)
+        if band_info:
+            low_freq, high_freq, color = band_info
+            self.title_label.setText(f"⚡ {current_band} Power ({low_freq}-{high_freq}Hz) - Channel: {channel_name}")
+            self.title_label.setStyleSheet(f"font-weight: bold; font-size: 14px; color: {color};")
+        
+        # Update analysis controls display
+        if hasattr(self, "analysis_controls"):
+            self.analysis_controls._updating_programmatically = True
+            self.analysis_controls.set_channel(channel_idx)
+            self.analysis_controls._updating_programmatically = False
+        # Update all tabs with new channel
+        self.power_plot.set_channel(channel_idx)
+        self.band_spikes.set_channel(channel_idx)
+        self.all_bands_power.set_channel(channel_idx)
+        
     def on_analysis_params_changed(self):
         """Handle analysis parameter changes"""
         # Trigger plot updates when parameters change
@@ -161,6 +197,8 @@ class TabbedAnalysisPanel(QWidget):
     def on_channel_changed_from_controls(self, channel_idx):
         """Handle channel changes from analysis controls - no recursion"""
         self.current_channel = channel_idx
+        # Update channel selector display without triggering its signal
+        self.channel_selector.set_current_channel(channel_idx)
         # Update all plots directly without triggering analysis_controls again
         self.power_plot.set_channel(channel_idx)
         self.band_spikes.set_channel(channel_idx)
@@ -173,11 +211,31 @@ class TabbedAnalysisPanel(QWidget):
         self.band_spikes.set_analyzer(analyzer)
         self.all_bands_power.set_analyzer(analyzer)
         
+        # Initialize channel selector with available channels
+        if analyzer and analyzer.processor and hasattr(analyzer.processor, "get_channel_names"):
+            channel_names = analyzer.processor.get_channel_names()
+            self.channel_selector.set_channels(channel_names)
+            # Set initial channel
+            if len(channel_names) > 0:
+                self.channel_selector.set_current_channel(0)
+                self.current_channel = 0
+        elif analyzer and hasattr(analyzer, "raw") and analyzer.raw:
+            # Fallback to direct raw access
+            channel_names = analyzer.raw.ch_names
+            self.channel_selector.set_channels(channel_names)
+            # Set initial channel
+            if len(channel_names) > 0:
+                self.channel_selector.set_current_channel(0)
+                self.current_channel = 0
+        
     def set_channel(self, channel_idx):
         """Set the channel to analyze"""
         self.current_channel = channel_idx
+        # Update channel selector display
+        self.channel_selector.set_current_channel(channel_idx)
         # Update analysis controls display
-        self.analysis_controls.set_channel(channel_idx)
+        if hasattr(self, "analysis_controls"):
+            self.analysis_controls.set_channel(channel_idx)
         # Update all plots
         self.power_plot.set_channel(channel_idx)
         self.band_spikes.set_channel(channel_idx)
@@ -203,6 +261,10 @@ class TabbedAnalysisPanel(QWidget):
     def get_current_channel(self):
         """Get current channel"""
         return self.current_channel
+        
+    def get_current_channel_name(self):
+        """Get current channel name"""
+        return self.channel_selector.get_current_channel_name()
         
     def get_current_tab_index(self):
         """Get current tab index"""

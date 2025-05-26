@@ -29,9 +29,14 @@ class TestWindow(QMainWindow):
         # Create tabbed analysis panel
         self.analysis_panel = TabbedAnalysisPanel()
         
+        # Set up test channels in the channel selector
+        test_channels = ["Fp1", "Fp2", "F3", "F4", "C3", "C4", "P3", "P4", "O1", "O2", "F7", "F8", "T3", "T4", "T5", "T6"]
+        self.analysis_panel.channel_selector.set_channels(test_channels)
+        
         # Connect signals
         self.analysis_panel.band_changed.connect(self.on_band_changed)
         self.analysis_panel.spike_detected.connect(self.on_spike_detected)
+        self.analysis_panel.channel_selector.channel_changed.connect(self.on_channel_changed)
         
         layout.addWidget(self.analysis_panel)
         
@@ -40,6 +45,9 @@ class TestWindow(QMainWindow):
         for i in range(self.analysis_panel.tab_widget.count()):
             tab_text = self.analysis_panel.tab_widget.tabText(i)
             print(f"   • Tab {i}: {tab_text}")
+        print(f"🔌 Available channels: {len(test_channels)}")
+        for i, name in enumerate(test_channels):
+            print(f"   • Channel {i}: {name}")
             
     def on_band_changed(self, band_name):
         """Handle band changes"""
@@ -48,6 +56,11 @@ class TestWindow(QMainWindow):
     def on_spike_detected(self, spike_time, band_name):
         """Handle spike detection"""
         print(f"⚡ Spike detected: {band_name} at {spike_time:.2f}s")
+        
+    def on_channel_changed(self, channel_idx):
+        """Handle channel changes"""
+        channel_name = self.analysis_panel.channel_selector.get_current_channel_name()
+        print(f"🔌 Channel changed to: {channel_idx} - {channel_name}")
 
 
 def main():
@@ -72,6 +85,7 @@ def main():
     print("\n🚀 Test window is now running!")
     print("📝 Instructions:")
     print("   • Switch between tabs to test different analysis tools")
+    print("   • Use the channel dropdown to select different EEG channels")
     print("   • Try changing frequency bands using the band selector")
     print("   • In the 'Band Spikes' tab, click 'Detect Spikes' to test spike detection")
     print("   • Use checkboxes in 'All Bands' tab to toggle band visibility")
