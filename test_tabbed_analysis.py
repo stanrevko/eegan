@@ -89,6 +89,7 @@ def main():
     print("   • Try changing frequency bands using the band selector")
     print("   • In the 'Band Spikes' tab, click 'Detect Spikes' to test spike detection")
     print("   • Use checkboxes in 'All Bands' tab to toggle band visibility")
+    print("   • In the 'DFA Analysis' tab, click 'Calculate DFA' to analyze signal complexity")
     print("   • Close the window to exit")
     
     sys.exit(app.exec_())
