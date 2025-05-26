@@ -1,0 +1,214 @@
+"""
+Tabbed Analysis Panel
+Main analysis panel with tabs for different analysis tools
+"""
+
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel, QGroupBox
+from PyQt5.QtCore import pyqtSignal
+
+from gui.analysis import BandSelector, PowerPlot, AnalysisControls
+from gui.analysis.band_spikes import BandSpikes
+from gui.analysis.all_bands_power import AllBandsPower
+
+
+class TabbedAnalysisPanel(QWidget):
+    """Tabbed frequency band analysis panel with multiple analysis tools"""
+    
+    # Signals
+    band_changed = pyqtSignal(str)
+    spike_detected = pyqtSignal(float, str)
+    
+    def __init__(self):
+        super().__init__()
+        self.analyzer = None
+        self.current_channel = 0
+        self.current_time = 0
+        self.current_duration = 0
+        
+        self.init_ui()
+        self.setup_connections()
+        
+    def init_ui(self):
+        """Initialize the tabbed UI"""
+        layout = QVBoxLayout(self)
+        
+        # Create main group box
+        main_group = QGroupBox()
+        main_group.setStyleSheet("""
+            QGroupBox {
+                border: 1px solid #555555;
+                border-radius: 5px;
+                margin-top: 10px;
+                padding-top: 10px;
+                background-color: #2b2b2b;
+            }
+        """)
+        main_layout = QVBoxLayout(main_group)
+        
+        # Header with shared controls
+        header_layout = QHBoxLayout()
+        
+        # Title
+        self.title_label = QLabel("⚡ Alpha Power (8-13Hz)")
+        self.title_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #ff9800;")
+        header_layout.addWidget(self.title_label)
+        
+        header_layout.addStretch()
+        
+        # Shared band selector
+        self.band_selector = BandSelector()
+        header_layout.addWidget(self.band_selector)
+        
+        main_layout.addLayout(header_layout)
+        
+        # Create tab widget
+        self.tab_widget = QTabWidget()
+        self.tab_widget.setStyleSheet("""
+            QTabWidget::pane {
+                border: 1px solid #555555;
+                background-color: #3c3c3c;
+                border-radius: 3px;
+            }
+            QTabWidget::tab-bar {
+                alignment: left;
+            }
+            QTabBar::tab {
+                background-color: #2b2b2b;
+                color: #ffffff;
+                padding: 8px 16px;
+                margin-right: 2px;
+                border: 1px solid #555555;
+                border-bottom: none;
+                border-top-left-radius: 4px;
+                border-top-right-radius: 4px;
+            }
+            QTabBar::tab:selected {
+                background-color: #3c3c3c;
+                border-bottom: 2px solid #ff9800;
+            }
+            QTabBar::tab:hover {
+                background-color: #404040;
+            }
+        """)
+        
+        # Tab 1: Band Power
+        self.create_band_power_tab()
+        
+        # Tab 2: Band Spikes  
+        self.create_band_spikes_tab()
+        
+        # Tab 3: All Band Powers
+        self.create_all_bands_tab()
+        
+        main_layout.addWidget(self.tab_widget)
+        layout.addWidget(main_group)
+        
+    def create_band_power_tab(self):
+        """Create the Band Power analysis tab"""
+        tab_widget = QWidget()
+        tab_layout = QHBoxLayout(tab_widget)
+        tab_layout.setContentsMargins(5, 5, 5, 5)
+        
+        # Power plot (takes most space)
+        self.power_plot = PowerPlot()
+        tab_layout.addWidget(self.power_plot, stretch=3)
+        
+        # Analysis controls
+        self.analysis_controls = AnalysisControls()
+        tab_layout.addWidget(self.analysis_controls, stretch=1)
+        
+        self.tab_widget.addTab(tab_widget, "📊 Band Power")
+        
+    def create_band_spikes_tab(self):
+        """Create the Band Spikes analysis tab"""
+        self.band_spikes = BandSpikes()
+        self.tab_widget.addTab(self.band_spikes, "⚡ Band Spikes")
+        
+    def create_all_bands_tab(self):
+        """Create the All Band Powers comparison tab"""
+        self.all_bands_power = AllBandsPower()
+        self.tab_widget.addTab(self.all_bands_power, "📈 All Bands")
+        
+    def setup_connections(self):
+        """Setup signal connections between components"""
+        # Band selector affects all tabs
+        self.band_selector.band_changed.connect(self.on_band_changed)
+        self.band_selector.band_changed.connect(self.power_plot.set_band)
+        self.band_selector.band_changed.connect(self.band_spikes.set_band)
+        self.band_selector.band_changed.connect(self.band_changed.emit)
+        
+        # Analysis controls to power plot
+        self.analysis_controls.window_size_changed.connect(self.on_analysis_params_changed)
+        self.analysis_controls.step_size_changed.connect(self.on_analysis_params_changed)
+        self.analysis_controls.channel_changed.connect(self.on_channel_changed_from_controls)
+        
+        # Spike detection signal
+        self.band_spikes.spike_detected.connect(self.spike_detected.emit)
+        
+    def on_band_changed(self, band_name):
+        """Handle band selection changes"""
+        band_info = self.band_selector.get_band_info(band_name)
+        if band_info:
+            low_freq, high_freq, color = band_info
+            self.title_label.setText(f"⚡ {band_name} Power ({low_freq}-{high_freq}Hz)")
+            self.title_label.setStyleSheet(f"font-weight: bold; font-size: 14px; color: {color};")
+            
+    def on_analysis_params_changed(self):
+        """Handle analysis parameter changes"""
+        # Trigger plot updates when parameters change
+        self.power_plot.update_plot()
+        
+    def on_channel_changed_from_controls(self, channel_idx):
+        """Handle channel changes from analysis controls - no recursion"""
+        self.current_channel = channel_idx
+        # Update all plots directly without triggering analysis_controls again
+        self.power_plot.set_channel(channel_idx)
+        self.band_spikes.set_channel(channel_idx)
+        self.all_bands_power.set_channel(channel_idx)
+        
+    def set_analyzer(self, analyzer):
+        """Set the EEG analyzer for all components"""
+        self.analyzer = analyzer
+        self.power_plot.set_analyzer(analyzer)
+        self.band_spikes.set_analyzer(analyzer)
+        self.all_bands_power.set_analyzer(analyzer)
+        
+    def set_channel(self, channel_idx):
+        """Set the channel to analyze"""
+        self.current_channel = channel_idx
+        # Update analysis controls display
+        self.analysis_controls.set_channel(channel_idx)
+        # Update all plots
+        self.power_plot.set_channel(channel_idx)
+        self.band_spikes.set_channel(channel_idx)
+        self.all_bands_power.set_channel(channel_idx)
+        
+    def set_time_window(self, current_time, total_duration):
+        """Set the current time window"""
+        self.current_time = current_time
+        self.current_duration = total_duration
+        self.power_plot.set_time_window(current_time, total_duration)
+        self.band_spikes.set_time_window(current_time, total_duration)
+        self.all_bands_power.set_time_window(current_time, total_duration)
+        
+    def set_timeframe(self, start_time, end_time):
+        """Set analysis timeframe for all tabs"""
+        self.power_plot.set_timeframe(start_time, end_time)
+        self.all_bands_power.set_timeframe(start_time, end_time)
+        
+    def get_current_band(self):
+        """Get currently selected frequency band"""
+        return self.band_selector.get_current_band()
+        
+    def get_current_channel(self):
+        """Get current channel"""
+        return self.current_channel
+        
+    def get_current_tab_index(self):
+        """Get current tab index"""
+        return self.tab_widget.currentIndex()
+        
+    def set_current_tab(self, index):
+        """Set current tab by index"""
+        if 0 <= index < self.tab_widget.count():
+            self.tab_widget.setCurrentIndex(index)

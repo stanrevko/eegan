@@ -25,7 +25,7 @@ from utils.settings import AppSettings
 from utils.ui_helpers import create_styled_button, create_collapsible_button
 from gui.file_panel import FilePanel
 from gui.eeg_timeline_panel import EEGTimelinePanel
-from gui.analysis_panel import AnalysisPanel
+from gui.analysis import TabbedAnalysisPanel
 from gui.plots import TimelineControls
 
 
@@ -415,8 +415,9 @@ class MainWindow(QMainWindow):
         self.analysis_splitter.addWidget(self.eeg_panel)
         
         # BOTTOM: Band Analysis Panel (smaller portion)
-        self.analysis_panel = AnalysisPanel()
+        self.analysis_panel = TabbedAnalysisPanel()
         self.analysis_panel.band_changed.connect(self.on_frequency_band_changed)
+        self.analysis_panel.spike_detected.connect(self.on_spike_detected)
         self.analysis_splitter.addWidget(self.analysis_panel)
         
         # Set vertical splitter proportions (EEG gets more space)
@@ -572,6 +573,18 @@ class MainWindow(QMainWindow):
         """Handle frequency band changes"""
         self.file_panel.update_status(f"📊 Switched to {band_name} band analysis")
         
+    def on_spike_detected(self, spike_time, band_name):
+        """Handle spike detection events"""
+        try:
+            print(f"🔥 Spike detected in {band_name} band at {spike_time:.2f}s")
+            # You can add more spike handling logic here:
+            # - Log to file
+            # - Show notification  
+            # - Jump to spike location
+            # - Analyze spike patterns
+        except Exception as e:
+            print(f"Error handling spike detection: {e}")
+
     def on_folder_changed(self, folder_path):
         """Handle folder changes"""
         self.file_panel.update_status(f"📁 Folder changed to: {os.path.basename(folder_path)}")
