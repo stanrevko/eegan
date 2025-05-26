@@ -196,7 +196,7 @@ class AllBandsPower(QWidget):
                 self.plot_widget.setXRange(x_min, x_max, padding=0)
                 
                 # Set Y range (normalized 0-1)
-                self.plot_widget.setYRange(0, 1.1, padding=0)
+                self.plot_widget.setYRange(0, 1.5, padding=0)
                 
                 # Add current position indicator
                 if self.current_time >= x_min and self.current_time <= x_max:

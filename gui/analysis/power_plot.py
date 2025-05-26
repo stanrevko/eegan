@@ -127,7 +127,7 @@ class PowerPlot(QWidget):
                     
                     # Set Y range (no negative values)
                     y_max = np.max(power_data) if len(power_data) > 0 and np.max(power_data) > 0 else 1
-                    self.plot_widget.setYRange(0, y_max * 1.1, padding=0)
+                    self.plot_widget.setYRange(0, y_max * 1.5, padding=0)
                     
                     # Add current position indicator
                     if self.current_time >= x_min and self.current_time <= x_max:
@@ -163,7 +163,7 @@ class PowerPlot(QWidget):
                         self.plot_widget.setXRange(x_min, x_max, padding=0)
                         
                         y_max = np.max(power_data) if np.max(power_data) > 0 else 1
-                        self.plot_widget.setYRange(0, y_max * 1.1, padding=0)
+                        self.plot_widget.setYRange(0, y_max * 1.5, padding=0)
                 
         except Exception as e:
             print(f"Error updating power plot: {e}")
@@ -206,7 +206,7 @@ class PowerPlot(QWidget):
             
             # Set Y range (no negative values)
             y_max = np.max(power_data) if np.max(power_data) > 0 else 1
-            self.plot_widget.setYRange(0, y_max * 1.1, padding=0)
+            self.plot_widget.setYRange(0, y_max * 1.5, padding=0)
                 
             # Add timeframe boundary lines
             start_line = pg.InfiniteLine(pos=start_time, angle=90, 

@@ -215,7 +215,7 @@ class BandSpikes(QWidget):
                 # Set ranges
                 self.plot_widget.setXRange(0, self.duration, padding=0)
                 y_max = np.max(power_data) if np.max(power_data) > 0 else 1
-                self.plot_widget.setYRange(0, y_max * 1.2, padding=0)
+                self.plot_widget.setYRange(0, y_max * 1.5, padding=0)
                 
                 # Add current position indicator
                 if 0 <= self.current_time <= self.duration:

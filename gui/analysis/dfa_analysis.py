@@ -425,6 +425,29 @@ class DFAAnalysis(QWidget):
             self.plot_widget.plot(log_scales, fitted_line, 
                                 pen={'color': '#ff4444', 'width': 2}, 
                                 name=f'α = {self.alpha:.3f}')
+        
+        # Set axis ranges (X and Y minimum at reasonable values, Y max at 1.5 * data max)
+        if len(log_scales) > 0 and len(log_fluctuations) > 0:
+            x_min = np.min(log_scales)
+            x_max = np.max(log_scales)
+            y_min = np.min(log_fluctuations)
+            y_max = np.max(log_fluctuations)
+            
+            # Set ranges for log-log plot (different rules since logs can be negative)
+            x_min = np.min(log_scales)
+            x_max = np.max(log_scales)
+            y_min = np.min(log_fluctuations)
+            y_max = np.max(log_fluctuations)
+            
+            # For log plots, we need to respect the data range but add margins
+            x_range = x_max - x_min
+            y_range = y_max - y_min
+            
+            # X range: small margin on both sides
+            self.plot_widget.setXRange(x_min - x_range * 0.05, x_max + x_range * 0.05, padding=0)
+            
+            # Y range: start from minimum with small margin, extend to 1.5x the range above max
+            self.plot_widget.setYRange(y_min - y_range * 0.05, y_max + y_range * 0.5, padding=0)
                                 
     def update_results(self):
         """Update results display"""
