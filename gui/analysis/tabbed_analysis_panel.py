@@ -6,7 +6,7 @@ Main analysis panel with tabs for different analysis tools
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QLabel, QGroupBox
 from PyQt5.QtCore import pyqtSignal
 
-from gui.analysis import BandSelector, ChannelSelector, PowerPlot, AnalysisControls, DFAAnalysis
+from gui.analysis import BandSelector, ChannelSelector, PowerPlot, AnalysisControls, DFAAnalysis, EEGTimelineAnalysis
 from gui.analysis.band_spikes import BandSpikes
 from gui.analysis.all_bands_power import AllBandsPower
 
@@ -106,7 +106,10 @@ class TabbedAnalysisPanel(QWidget):
         # Tab 3: All Band Powers
         self.create_all_bands_tab()
         
-        # Tab 4: DFA Analysis (moved to last)
+        # Tab 4: EEG Timeline
+        self.create_eeg_timeline_tab()
+        
+        # Tab 5: DFA Analysis (moved to last)
         self.create_dfa_tab()
         
         main_layout.addWidget(self.tab_widget)
@@ -137,6 +140,11 @@ class TabbedAnalysisPanel(QWidget):
         """Create the All Band Powers comparison tab"""
         self.all_bands_power = AllBandsPower()
         self.tab_widget.addTab(self.all_bands_power, "📈 All Bands")
+        
+    def create_eeg_timeline_tab(self):
+        """Create the EEG Timeline analysis tab"""
+        self.eeg_timeline = EEGTimelineAnalysis()
+        self.tab_widget.addTab(self.eeg_timeline, "📺 EEG Timeline")
         
     def create_dfa_tab(self):
         """Create the DFA analysis tab"""
@@ -196,6 +204,7 @@ class TabbedAnalysisPanel(QWidget):
         self.power_plot.set_channel(channel_idx)
         self.band_spikes.set_channel(channel_idx)
         self.all_bands_power.set_channel(channel_idx)
+        self.eeg_timeline.set_channel(channel_idx)
         self.dfa_analysis.set_channel(channel_idx)        
     def on_analysis_params_changed(self):
         """Handle analysis parameter changes"""
@@ -211,6 +220,7 @@ class TabbedAnalysisPanel(QWidget):
         self.power_plot.set_channel(channel_idx)
         self.band_spikes.set_channel(channel_idx)
         self.all_bands_power.set_channel(channel_idx)
+        self.eeg_timeline.set_channel(channel_idx)
         self.dfa_analysis.set_channel(channel_idx)        
     def set_analyzer(self, analyzer):
         """Set the EEG analyzer for all components"""
@@ -218,6 +228,7 @@ class TabbedAnalysisPanel(QWidget):
         self.power_plot.set_analyzer(analyzer)
         self.band_spikes.set_analyzer(analyzer)
         self.all_bands_power.set_analyzer(analyzer)
+        self.eeg_timeline.set_analyzer(analyzer)
         self.dfa_analysis.set_analyzer(analyzer)        
         # Initialize channel selector with available channels
         if analyzer and analyzer.processor and hasattr(analyzer.processor, "get_channel_names"):
@@ -248,6 +259,7 @@ class TabbedAnalysisPanel(QWidget):
         self.power_plot.set_channel(channel_idx)
         self.band_spikes.set_channel(channel_idx)
         self.all_bands_power.set_channel(channel_idx)
+        self.eeg_timeline.set_channel(channel_idx)
         self.dfa_analysis.set_channel(channel_idx)        
     def set_time_window(self, current_time, total_duration):
         """Set the current time window"""
@@ -256,6 +268,7 @@ class TabbedAnalysisPanel(QWidget):
         self.power_plot.set_time_window(current_time, total_duration)
         self.band_spikes.set_time_window(current_time, total_duration)
         self.all_bands_power.set_time_window(current_time, total_duration)
+        self.eeg_timeline.set_time_window(current_time, total_duration)
         self.dfa_analysis.set_timeframe(current_time, current_time + total_duration)        
     def set_timeframe(self, start_time, end_time):
         """Set analysis timeframe for all tabs"""

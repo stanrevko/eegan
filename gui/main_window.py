@@ -24,7 +24,6 @@ from eeg.analyzer import EEGAnalyzer
 from utils.settings import AppSettings
 from utils.ui_helpers import create_styled_button, create_collapsible_button
 from gui.file_panel import FilePanel
-from gui.eeg_timeline_panel import EEGTimelinePanel
 from gui.analysis import TabbedAnalysisPanel
 from gui.plots import TimelineControls
 
@@ -400,33 +399,22 @@ class MainWindow(QMainWindow):
         self.file_panel.setVisible(self.sidebar_visible)
         
     def create_analysis_area(self):
-        """Create simplified 2-panel analysis area (EEG + Band Analysis only)"""
+        """Create analysis area with tabbed analysis panel"""
         analysis_widget = QWidget()
         analysis_layout = QVBoxLayout(analysis_widget)
         analysis_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Vertical splitter for main analysis area
-        self.analysis_splitter = QSplitter(Qt.Vertical)
-        analysis_layout.addWidget(self.analysis_splitter)
-        
-        # TOP: EEG Timeline Panel (larger portion) - timeline controls moved to toolbar
-        self.eeg_panel = EEGTimelinePanel()
-        self.eeg_panel.channel_visibility_changed.connect(self.on_channel_visibility_changed)
-        self.analysis_splitter.addWidget(self.eeg_panel)
-        
-        # BOTTOM: Band Analysis Panel (smaller portion)
+        # Analysis Panel (full area)
         self.analysis_panel = TabbedAnalysisPanel()
         self.analysis_panel.band_changed.connect(self.on_frequency_band_changed)
         self.analysis_panel.spike_detected.connect(self.on_spike_detected)
-        self.analysis_splitter.addWidget(self.analysis_panel)
+        analysis_layout.addWidget(self.analysis_panel)        
         
-        # Set vertical splitter proportions (EEG gets more space)
-        self.analysis_splitter.setSizes([700, 300])
+        
         
         self.main_splitter.addWidget(analysis_widget)
         
         # Ensure analysis panels are visible
-        self.eeg_panel.show()
         self.analysis_panel.show()
         
     def setup_shortcuts(self):
@@ -524,17 +512,13 @@ class MainWindow(QMainWindow):
             return
             
         try:
-            # Update EEG timeline panel (without timeline controls)
-            self.eeg_panel.set_processor(self.processor)
             
             # Update analysis panel
             self.analysis_panel.set_analyzer(self.analyzer)
             
-            # Set initial channel (first visible channel)
-            visible_channels = self.eeg_panel.get_visible_channels()
-            if visible_channels:
-                initial_channel = visible_channels[0]
-                self.analysis_panel.set_channel(initial_channel)
+            # Set initial channel to first channel
+            initial_channel = 0
+            self.analysis_panel.set_channel(initial_channel)
                 
             self.file_panel.update_status("✅ EEG timeline and band analysis ready!")
             
@@ -553,8 +537,6 @@ class MainWindow(QMainWindow):
             # Update analysis panel to sync with timeline
             self.analysis_panel.set_time_window(current_time, duration)
             
-            # Update EEG panel position
-            self.eeg_panel.set_current_position(position)
             
     def on_timeframe_changed(self, start_time, end_time):
         """Handle timeframe changes for analysis window"""
@@ -563,11 +545,6 @@ class MainWindow(QMainWindow):
             self.analysis_panel.set_timeframe(start_time, end_time)
             self.file_panel.update_status(f"📊 Analysis window: {start_time:.1f}s - {end_time:.1f}s")
             
-    def on_channel_visibility_changed(self, visible_channels):
-        """Handle channel visibility changes"""
-        if visible_channels and self.analyzer:
-            # Update analysis panel to use first visible channel
-            self.analysis_panel.set_channel(visible_channels[0])
             
     def on_frequency_band_changed(self, band_name):
         """Handle frequency band changes"""
