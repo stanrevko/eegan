@@ -7,10 +7,11 @@ import numpy as np
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                              QPushButton, QSpinBox, QDoubleSpinBox, QGroupBox,
                              QTextEdit, QProgressBar, QCheckBox)
-from PyQt5.QtCore import pyqtSignal, QTimer
+from PyQt5.QtCore import pyqtSignal, QTimer, Qt
 import pyqtgraph as pg
 from scipy import signal
 from sklearn.linear_model import LinearRegression
+from utils.ui_helpers import setup_dark_plot
 
 
 class DFAAnalysis(QWidget):
@@ -20,7 +21,6 @@ class DFAAnalysis(QWidget):
     analysis_completed = pyqtSignal(float)  # alpha value
     
     def __init__(self):
-        
         super().__init__()
         self.analyzer = None
         self.current_channel = 0
@@ -32,232 +32,87 @@ class DFAAnalysis(QWidget):
         self.fluctuations = None
         self.alpha = None
         
-        
         self.init_ui()
         
     def init_ui(self):
         """Initialize the DFA analysis UI"""
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
         
-        # Parameters group
-        params_group = QGroupBox("DFA Parameters")
-        params_layout = QHBoxLayout(params_group)
-        
-        # Min scale
-        params_layout.addWidget(QLabel("Min Scale:"))
-        self.min_scale_spin = QSpinBox()
-        self.min_scale_spin.setRange(2, 100)
-        self.min_scale_spin.setValue(4)
-        self.min_scale_spin.setToolTip("Minimum time scale for DFA (samples)")
-        params_layout.addWidget(self.min_scale_spin)
-        
-        # Max scale
-        params_layout.addWidget(QLabel("Max Scale:"))
-        self.max_scale_spin = QSpinBox()
-        self.max_scale_spin.setRange(10, 10000)
-        self.max_scale_spin.setValue(1000)
-        self.max_scale_spin.setToolTip("Maximum time scale for DFA (samples)")
-        params_layout.addWidget(self.max_scale_spin)
-        
-        # Number of scales
-        params_layout.addWidget(QLabel("N Scales:"))
-        self.n_scales_spin = QSpinBox()
-        self.n_scales_spin.setRange(10, 50)
-        self.n_scales_spin.setValue(20)
-        self.n_scales_spin.setToolTip("Number of scales to calculate")
-        params_layout.addWidget(self.n_scales_spin)
-        
-        params_layout.addStretch()
-        
-        # Calculate button
-        self.calculate_btn = QPushButton("🔬 Calculate DFA")
-        self.calculate_btn.clicked.connect(self.calculate_dfa)
-        self.calculate_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #0078d4;
-                color: #ffffff;
-                border: none;
-                padding: 8px 16px;
-                font-weight: bold;
-                border-radius: 4px;
-                min-width: 120px;
-            }
-            QPushButton:hover {
-                background-color: #106ebe;
-            }
-            QPushButton:disabled {
-                background-color: #666666;
-            }
-        """)
-        params_layout.addWidget(self.calculate_btn)
-        
-        layout.addWidget(params_group)
-        
-        
-        # Results layout
-        results_layout = QHBoxLayout()
-        
-        # Plot widget
+        # Create plot widget
         self.plot_widget = pg.PlotWidget()
-        self.plot_widget.setLabel('left', 'log₁₀(F(n))', color='white', size='12pt')
-        self.plot_widget.setLabel('bottom', 'log₁₀(n)', color='white', size='12pt')
-        self.plot_widget.setTitle('DFA - Fluctuation vs Scale', color='white', size='14pt')
-        self.plot_widget.setBackground('#2b2b2b')
-        self.plot_widget.showGrid(True, True, 0.3)
+        setup_dark_plot(self.plot_widget, "log₁₀(Scale)", "log₁₀(Fluctuation)")
         
-        # Style axes
-        for axis_name in ['bottom', 'left']:
-            axis = self.plot_widget.getAxis(axis_name)
-            axis.setPen(color='white')
-            axis.setTextPen(color='white')
-            
-        results_layout.addWidget(self.plot_widget, stretch=2)
+        # Configure plot
+        self.plot_widget.showGrid(x=True, y=True, alpha=0.3)
         
-        # Results panel
-        results_panel = QGroupBox("DFA Results")
-        results_panel_layout = QVBoxLayout(results_panel)
-        results_panel.setMaximumWidth(300)
+        layout.addWidget(self.plot_widget)
         
-        # Alpha value display
+        # Add controls
+        controls_group = QGroupBox("DFA Controls")
+        controls_layout = QVBoxLayout()
+        
+        # Scale range controls
+        scale_layout = QHBoxLayout()
+        scale_layout.addWidget(QLabel("Min Scale:"))
+        self.min_scale_spin = QSpinBox()
+        self.min_scale_spin.setRange(4, 1000)
+        self.min_scale_spin.setValue(4)
+        scale_layout.addWidget(self.min_scale_spin)
+        
+        scale_layout.addWidget(QLabel("Max Scale:"))
+        self.max_scale_spin = QSpinBox()
+        self.max_scale_spin.setRange(4, 1000)
+        self.max_scale_spin.setValue(100)
+        scale_layout.addWidget(self.max_scale_spin)
+        
+        scale_layout.addWidget(QLabel("Number of Scales:"))
+        self.n_scales_spin = QSpinBox()
+        self.n_scales_spin.setRange(4, 50)
+        self.n_scales_spin.setValue(20)
+        scale_layout.addWidget(self.n_scales_spin)
+        
+        controls_layout.addLayout(scale_layout)
+        
+        # Analysis button
+        self.analyze_button = QPushButton("Run DFA Analysis")
+        self.analyze_button.clicked.connect(self.run_analysis)
+        controls_layout.addWidget(self.analyze_button)
+        
+        # Results display
+        results_layout = QVBoxLayout()
+        
         self.alpha_label = QLabel("DFA α: --")
-        self.alpha_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #00bfff;")
-        results_panel_layout.addWidget(self.alpha_label)
+        self.alpha_label.setStyleSheet("font-weight: bold; color: #ff9800;")
+        results_layout.addWidget(self.alpha_label)
         
-        # Interpretation
         self.interpretation_label = QLabel("Interpretation: --")
-        self.interpretation_label.setStyleSheet("color: #ffffff; font-weight: bold;")
-        self.interpretation_label.setWordWrap(True)
-        results_panel_layout.addWidget(self.interpretation_label)
+        results_layout.addWidget(self.interpretation_label)
         
-        # Statistics
         self.stats_text = QTextEdit()
-        self.stats_text.setMaximumHeight(150)
-        self.stats_text.setStyleSheet("""
-            QTextEdit {
-                background-color: #3c3c3c;
-                color: #ffffff;
-                border: 1px solid #555555;
-                border-radius: 4px;
-                font-family: monospace;
-                font-size: 11px;
-            }
-        """)
-        results_panel_layout.addWidget(self.stats_text)
+        self.stats_text.setReadOnly(True)
+        self.stats_text.setMaximumHeight(200)
+        results_layout.addWidget(self.stats_text)
         
-        results_panel_layout.addStretch()
-        results_layout.addWidget(results_panel)
-        
-        layout.addLayout(results_layout)
-        
-        # Apply dark theme styling
-        self.setStyleSheet("""
-            QGroupBox {
-                font-weight: bold;
-                border: 1px solid #555555;
-                border-radius: 5px;
-                margin-top: 10px;
-                padding-top: 10px;
-                color: #ffffff;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-            }
-            QLabel {
-                color: #ffffff;
-            }
-            QSpinBox {
-                background-color: #3c3c3c;
-                border: 1px solid #555555;
-                color: #ffffff;
-                padding: 2px;
-                border-radius: 3px;
-            }
-        """)
+        controls_layout.addLayout(results_layout)
+        controls_group.setLayout(controls_layout)
+        layout.addWidget(controls_group)
         
     def set_analyzer(self, analyzer):
         """Set the EEG analyzer"""
         self.analyzer = analyzer
-        self.update_data()  # Update data immediately when analyzer is set
+        self.update_data()
         
     def set_channel(self, channel_idx):
         """Set the channel to analyze"""
         self.current_channel = channel_idx
-        # Re-enable calculate button if it was disabled
-        self.calculate_btn.setEnabled(True)
-        self.calculate_btn.setText("🔬 Calculate DFA")
-            
-    def calculate_dfa_direct(self, min_scale, max_scale, n_scales):
-        """Calculate DFA directly without threading"""
-        from sklearn.linear_model import LinearRegression
-        
-        # Integrate the signal
-        integrated = np.cumsum(self.current_data - np.mean(self.current_data))
-        
-        # Create logarithmically spaced scales
-        scales = np.logspace(
-            np.log10(min_scale), 
-            np.log10(max_scale), 
-            n_scales
-        ).astype(int)
-        
-        fluctuations = np.zeros(len(scales))
-        
-        for i, scale in enumerate(scales):
-            # Divide integrated signal into non-overlapping segments
-            n_segments = len(integrated) // scale
-            
-            if n_segments < 1:
-                continue
-                
-            # Reshape data for vectorized processing
-            segments = integrated[:n_segments * scale].reshape(n_segments, scale)
-            
-            # Create time array for each segment
-            t = np.arange(scale)
-            
-            # Calculate local trends for each segment
-            fluctuation_sum = 0
-            for segment in segments:
-                # Fit linear trend
-                coeffs = np.polyfit(t, segment, 1)
-                trend = np.polyval(coeffs, t)
-                
-                # Calculate fluctuation (RMS of detrended segment)
-                fluctuation_sum += np.sum((segment - trend) ** 2)
-            
-            # Average fluctuation for this scale
-            fluctuations[i] = np.sqrt(fluctuation_sum / (n_segments * scale))
-        
-        # Remove any zero fluctuations
-        valid_indices = fluctuations > 0
-        scales = scales[valid_indices]
-        fluctuations = fluctuations[valid_indices]
-        
-        # Calculate scaling exponent (alpha) using linear regression in log-log space
-        if len(scales) > 2:
-            log_scales = np.log10(scales)
-            log_fluctuations = np.log10(fluctuations)
-            
-            # Fit line to log-log plot
-            reg = LinearRegression()
-            reg.fit(log_scales.reshape(-1, 1), log_fluctuations)
-            alpha = reg.coef_[0]
-        else:
-            alpha = np.nan
-            
-        return scales, fluctuations, alpha
-        # Update data and clear results
         self.update_data()
-        self.clear_results()
         
-    def update_data(self):
-        """Update current data from analyzer"""
+    def set_timeframe(self, start_time, end_time):
+        """Set analysis timeframe"""
         if self.analyzer and self.analyzer.processor:
             try:
-                # Get all available data for the current channel
-                data, times = self.analyzer.processor.get_filtered_data()
+                data, _ = self.analyzer.processor.get_filtered_data(start_time, end_time)
                 if data is not None and len(data) > self.current_channel:
                     self.current_data = data[self.current_channel]
                     self.sfreq = self.analyzer.processor.get_sampling_rate()
@@ -269,17 +124,16 @@ class DFAAnalysis(QWidget):
                         self.max_scale_spin.setValue(max_possible)
                 else:
                     self.current_data = None
-                        
+                    
             except Exception as e:
-                print(f"Error updating DFA data: {e}")
-                self.current_data = None
+                print(f"Error setting timeframe for DFA: {e}")
                 
-    def set_timeframe(self, start_time, end_time):
-        """Set analysis timeframe"""
-        # Update data based on timeframe
+    def update_data(self):
+        """Update current data from analyzer"""
         if self.analyzer and self.analyzer.processor:
             try:
-                data, times = self.analyzer.processor.get_filtered_data(start_time, end_time)
+                # Get all available data for the current channel
+                data, _ = self.analyzer.processor.get_filtered_data()
                 if data is not None and len(data) > self.current_channel:
                     self.current_data = data[self.current_channel]
                     self.sfreq = self.analyzer.processor.get_sampling_rate()
@@ -290,118 +144,95 @@ class DFAAnalysis(QWidget):
                     if self.max_scale_spin.value() > max_possible:
                         self.max_scale_spin.setValue(max_possible)
                 else:
-                    pass  # No data available for timeframe
-                        
+                    self.current_data = None
+                    
             except Exception as e:
-                print(f"Error setting timeframe for DFA: {e}")
+                print(f"Error updating DFA data: {e}")
+                self.current_data = None
                 
-    def calculate_dfa(self):
-        """Start DFA calculation"""
-        # Check if we have data
+    def run_analysis(self):
+        """Run DFA analysis on current data"""
         if self.current_data is None:
-            self.stats_text.setText("❌ No data available. Please select a channel and ensure EEG data is loaded.")
             return
             
-        if len(self.current_data) < 100:
-            self.stats_text.setText(f"❌ Insufficient data length: {len(self.current_data)} samples. Need at least 100 samples.")
-            return
-            
-        # Clear previous results
-        self.clear_results()
-        
-        # Disable button during calculation
-        self.calculate_btn.setEnabled(False)
-        self.calculate_btn.setText("🔄 Calculating...")
-        
-        # Get parameters
-        min_scale = self.min_scale_spin.value()
-        max_scale = min(self.max_scale_spin.value(), len(self.current_data) // 4)
-        n_scales = self.n_scales_spin.value()
-        
         try:
-            # Calculate DFA directly (non-threaded for stability)
-            scales, fluctuations, alpha = self.calculate_dfa_direct(min_scale, max_scale, n_scales)
+            # Get parameters
+            min_scale = self.min_scale_spin.value()
+            max_scale = self.max_scale_spin.value()
+            n_scales = self.n_scales_spin.value()
             
-            # Update results directly
-            self.scales = scales
-            self.fluctuations = fluctuations
-            self.alpha = alpha
+            # Calculate DFA
+            self.scales, self.fluctuations, self.alpha = self.calculate_dfa_direct(
+                min_scale, max_scale, n_scales
+            )
             
-            # Update plot and results display
+            # Update plot
             self.update_plot()
+            
+            # Update results display
             self.update_results()
             
-            # Emit signal
-            self.analysis_completed.emit(alpha)
+            # Emit completion signal
+            self.analysis_completed.emit(self.alpha)
             
         except Exception as e:
-            self.stats_text.setText(f"❌ Error calculating DFA: {str(e)}")
-        finally:
-            # Always re-enable button
-            self.calculate_btn.setEnabled(True)
-            self.calculate_btn.setText("🔬 Calculate DFA")
+            print(f"Error running DFA analysis: {e}")
             
     def calculate_dfa_direct(self, min_scale, max_scale, n_scales):
         """Calculate DFA directly without threading"""
-        from sklearn.linear_model import LinearRegression
-        
-        # Integrate the signal
-        integrated = np.cumsum(self.current_data - np.mean(self.current_data))
-        
-        # Create logarithmically spaced scales
-        scales = np.logspace(
-            np.log10(min_scale), 
-            np.log10(max_scale), 
-            n_scales
-        ).astype(int)
-        
-        fluctuations = np.zeros(len(scales))
-        
-        for i, scale in enumerate(scales):
-            # Divide integrated signal into non-overlapping segments
-            n_segments = len(integrated) // scale
+        if self.current_data is None:
+            return None, None, None
             
-            if n_segments < 1:
-                continue
+        try:
+            # Generate logarithmically spaced scales
+            scales = np.logspace(np.log10(min_scale), np.log10(max_scale), n_scales)
+            scales = np.round(scales).astype(int)
+            
+            # Calculate fluctuations for each scale
+            fluctuations = []
+            
+            for scale in scales:
+                # Divide signal into non-overlapping segments
+                n_segments = len(self.current_data) // scale
+                if n_segments < 2:
+                    continue
+                    
+                # Reshape data into segments
+                segments = self.current_data[:n_segments * scale].reshape(n_segments, scale)
                 
-            # Reshape data for vectorized processing
-            segments = integrated[:n_segments * scale].reshape(n_segments, scale)
-            
-            # Create time array for each segment
-            t = np.arange(scale)
-            
-            # Calculate local trends for each segment
-            fluctuation_sum = 0
-            for segment in segments:
-                # Fit linear trend
-                coeffs = np.polyfit(t, segment, 1)
-                trend = np.polyval(coeffs, t)
+                # Calculate local trends using linear regression
+                trends = np.zeros_like(segments)
+                for i, segment in enumerate(segments):
+                    x = np.arange(scale)
+                    reg = LinearRegression()
+                    reg.fit(x.reshape(-1, 1), segment)
+                    trends[i] = reg.predict(x.reshape(-1, 1))
                 
-                # Calculate fluctuation (RMS of detrended segment)
-                fluctuation_sum += np.sum((segment - trend) ** 2)
+                # Detrend segments
+                detrended = segments - trends
+                
+                # Calculate root mean square fluctuation
+                rms = np.sqrt(np.mean(detrended ** 2, axis=1))
+                fluctuations.append(np.mean(rms))
+                
+            # Calculate scaling exponent (alpha) using linear regression in log-log space
+            if len(scales) > 2:
+                log_scales = np.log10(scales)
+                log_fluctuations = np.log10(fluctuations)
+                
+                # Fit line to log-log plot
+                reg = LinearRegression()
+                reg.fit(log_scales.reshape(-1, 1), log_fluctuations)
+                alpha = reg.coef_[0]
+            else:
+                alpha = np.nan
+                
+            return scales, np.array(fluctuations), alpha
             
-            # Average fluctuation for this scale
-            fluctuations[i] = np.sqrt(fluctuation_sum / (n_segments * scale))
-        
-        # Remove any zero fluctuations
-        valid_indices = fluctuations > 0
-        scales = scales[valid_indices]
-        fluctuations = fluctuations[valid_indices]
-        
-        # Calculate scaling exponent (alpha) using linear regression in log-log space
-        if len(scales) > 2:
-            log_scales = np.log10(scales)
-            log_fluctuations = np.log10(fluctuations)
+        except Exception as e:
+            print(f"Error calculating DFA: {e}")
+            return None, None, None
             
-            # Fit line to log-log plot
-            reg = LinearRegression()
-            reg.fit(log_scales.reshape(-1, 1), log_fluctuations)
-            alpha = reg.coef_[0]
-        else:
-            alpha = np.nan
-            
-        return scales, fluctuations, alpha
-        
     def update_plot(self):
         """Update the DFA plot"""
         self.plot_widget.clear()
@@ -425,30 +256,21 @@ class DFAAnalysis(QWidget):
             self.plot_widget.plot(log_scales, fitted_line, 
                                 pen={'color': '#ff4444', 'width': 2}, 
                                 name=f'α = {self.alpha:.3f}')
-        
-        # Set axis ranges (X and Y minimum at reasonable values, Y max at 1.5 * data max)
+            
+        # Set axis ranges
         if len(log_scales) > 0 and len(log_fluctuations) > 0:
             x_min = np.min(log_scales)
             x_max = np.max(log_scales)
             y_min = np.min(log_fluctuations)
             y_max = np.max(log_fluctuations)
             
-            # Set ranges for log-log plot (different rules since logs can be negative)
-            x_min = np.min(log_scales)
-            x_max = np.max(log_scales)
-            y_min = np.min(log_fluctuations)
-            y_max = np.max(log_fluctuations)
-            
-            # For log plots, we need to respect the data range but add margins
+            # Add margins
             x_range = x_max - x_min
             y_range = y_max - y_min
             
-            # X range: small margin on both sides
             self.plot_widget.setXRange(x_min - x_range * 0.05, x_max + x_range * 0.05, padding=0)
-            
-            # Y range: start from minimum with small margin, extend to 1.5x the range above max
             self.plot_widget.setYRange(y_min - y_range * 0.05, y_max + y_range * 0.5, padding=0)
-                                
+            
     def update_results(self):
         """Update results display"""
         if self.alpha is None:
@@ -499,18 +321,3 @@ Interpretation Guide:
 • α > 1.5: Non-stationary"""
         
         self.stats_text.setText(stats_text)
-        
-    def clear_results(self):
-        """Clear all results"""
-        self.scales = None
-        self.fluctuations = None
-        self.alpha = None
-        self.plot_widget.clear()
-        self.alpha_label.setText("DFA α: --")
-        self.interpretation_label.setText("Interpretation: --")
-        self.interpretation_label.setStyleSheet("color: #ffffff; font-weight: bold;")
-        self.stats_text.clear()
-        
-    def get_alpha_value(self):
-        """Get current alpha value"""
-        return self.alpha

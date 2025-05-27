@@ -44,6 +44,14 @@ class BandSpikes(QWidget):
         self.plot_widget.setYRange(0, 100)
         self.plot_widget.setXRange(0, 10)
         
+        # Add cursor
+        self.cursor = pg.InfiniteLine(
+            pos=0,
+            angle=90,
+            pen=pg.mkPen(color='#ff9800', width=2, style=Qt.DashLine)
+        )
+        self.plot_widget.addItem(self.cursor)
+        
         layout.addWidget(self.plot_widget)
         
     def set_analyzer(self, analyzer):
@@ -70,12 +78,14 @@ class BandSpikes(QWidget):
         self.current_time = max(0, current_time)
         self.duration = total_duration
         self.plot_widget.getPlotItem().getViewBox().setLimits(xMax=total_duration)
+        self.update_cursor()
         self.update_plot()
         
     def set_threshold(self, value):
         """Set the threshold multiplier"""
         print(f"🎯 BandSpikes: Setting threshold to {value}σ (standard deviations above mean)")
         self.threshold_multiplier = value  # Direct value (e.g., 2.0 = 2 standard deviations)
+        self.detect_spikes()
         self.update_plot()
         
     def detect_spikes(self):
@@ -178,3 +188,8 @@ class BandSpikes(QWidget):
     def get_spike_count(self):
         """Get the number of detected spikes"""
         return len(self.spike_events)
+
+    def update_cursor(self):
+        """Update the cursor position"""
+        if hasattr(self, 'cursor'):
+            self.cursor.setPos(self.current_time)

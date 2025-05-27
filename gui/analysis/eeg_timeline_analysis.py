@@ -29,6 +29,8 @@ class EEGTimelineAnalysis(QWidget):
         self.spacing = 1   # spacing multiplier - changed from 3 to 1
         self.visible_channels = {}
         self.channel_names = []
+        self.start_time = 0
+        self.end_time = 0
         
         self.init_ui()
         
@@ -247,7 +249,7 @@ class EEGTimelineAnalysis(QWidget):
     def on_time_line_moved(self, line):
         """Handle time line movement"""
         new_time = line.pos().x()
-        if 0 <= new_time <= self.duration:
+        if self.start_time <= new_time <= self.end_time:
             self.current_time = new_time
             self.time_changed.emit(new_time)
         
@@ -265,6 +267,11 @@ class EEGTimelineAnalysis(QWidget):
             self.duration = analyzer.processor.get_duration()
             self.channel_names = analyzer.processor.get_channel_names()
             print(f"📊 EEG Timeline: Duration={self.duration:.1f}s, Channels={len(self.channel_names)}")
+            
+            # Initialize timeframe to full duration
+            self.start_time = 0
+            self.end_time = self.duration
+            
             self.setup_channel_controls()
             print(f"✅ EEG Timeline: Analyzer set successfully")
         else:
@@ -279,8 +286,33 @@ class EEGTimelineAnalysis(QWidget):
         """Set the current time window from main timeline controls"""
         self.current_time = max(0, current_time)
         self.duration = total_duration
-        self.time_line.setPos(self.current_time)
-        # No need to update plot as we show full signal
+        
+        # Only update time line position if within current timeframe
+        if self.start_time <= self.current_time <= self.end_time:
+            self.time_line.setPos(self.current_time)
+            
+        # Update plot with current timeframe
+        self.update_plot()
+        
+    def set_timeframe(self, start_time, end_time):
+        """Set analysis timeframe"""
+        print(f"🔄 EEG Timeline: Setting timeframe {start_time:.1f}s - {end_time:.1f}s")
+        self.start_time = start_time
+        self.end_time = end_time
+        
+        # Update plot X-axis range
+        self.plot_widget.setXRange(start_time, end_time, padding=0)
+        
+        # Update time line position if needed
+        if self.current_time < start_time:
+            self.current_time = start_time
+            self.time_line.setPos(start_time)
+        elif self.current_time > end_time:
+            self.current_time = end_time
+            self.time_line.setPos(end_time)
+            
+        # Force plot update with new timeframe
+        self.update_plot()
         
     def setup_channel_controls(self):
         """Setup channel visibility controls"""
@@ -341,7 +373,7 @@ class EEGTimelineAnalysis(QWidget):
         print(f"🎛️ EEG Timeline: Setup {len(self.channel_names)} channels, {visible_count} visible")
         
     def update_plot(self):
-        """Update the EEG timeline plot - Show FULL signal data"""
+        """Update the EEG timeline plot"""
         if not self.analyzer:
             print("⚠️ EEG Timeline: No analyzer available for plot update")
             return
@@ -353,14 +385,20 @@ class EEGTimelineAnalysis(QWidget):
                 if item != self.time_line:
                     self.plot_widget.removeItem(item)
             
-            # Get ALL data (full signal, not windowed)
-            data, times = self.analyzer.processor.get_filtered_data()
+            # Get data for current timeframe
+            if self.start_time == 0 and self.end_time == 0:
+                # If no timeframe set, use full duration
+                self.start_time = 0
+                self.end_time = self.duration
+                
+            print(f"📊 EEG Timeline: Getting data for timeframe {self.start_time:.1f}s - {self.end_time:.1f}s")
+            data, times = self.analyzer.processor.get_filtered_data(self.start_time, self.end_time)
             
             if data is None or len(data) == 0:
                 print("⚠️ EEG Timeline: No data available for plotting")
                 return
                 
-            print(f"📊 EEG Timeline: Plotting FULL data - channels={data.shape[0]}, samples={data.shape[1]}")
+            print(f"📊 EEG Timeline: Got data - channels={data.shape[0]}, samples={data.shape[1]}")
                 
             # Convert to microvolts
             data = data * 1e6
@@ -385,15 +423,22 @@ class EEGTimelineAnalysis(QWidget):
                 color = colors[channel_idx % len(colors)]
                 pen = pg.mkPen(color=color, width=1)
                 
-                self.plot_widget.plot(times, offset_data, pen=pen)
+                # Plot the data with explicit x and y values
+                self.plot_widget.plot(x=times, y=offset_data, pen=pen)
                 
                 visible_count += 1
             
-            # Set plot ranges to show FULL signal
+            # Set plot ranges
             if visible_count > 0:
-                self.plot_widget.setXRange(0, self.duration, padding=0)
-                self.plot_widget.setYRange(-self.spacing, visible_count * self.spacing, padding=0)
-                print(f"✅ EEG Timeline: Plotted {visible_count} visible channels (FULL SIGNAL: 0-{self.duration:.1f}s)")
+                # Set X range to match timeframe
+                self.plot_widget.setXRange(self.start_time, self.end_time, padding=0)
+                
+                # Set Y range based on number of visible channels
+                y_min = -self.spacing
+                y_max = visible_count * self.spacing
+                self.plot_widget.setYRange(y_min, y_max, padding=0.1)
+                
+                print(f"✅ EEG Timeline: Plotted {visible_count} visible channels ({self.start_time:.1f}s - {self.end_time:.1f}s)")
             else:
                 print(f"⚠️ EEG Timeline: No visible channels to plot (total channels: {len(self.channel_names)})")
                 
