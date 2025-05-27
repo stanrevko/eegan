@@ -282,7 +282,11 @@ class TabbedAnalysisPanel(QWidget):
         # Connect tab change handler
         self.tab_widget.currentChanged.connect(self.on_tab_changed)
         # Connect threshold spinbox
-        # Initialize threshold value
+        # Initialize band selector with current band
+        if hasattr(self, 'spikes_band_selector') and hasattr(self, 'band_spikes'):
+            self.spikes_band_selector.set_current_band(self.current_band)
+            self.band_spikes.set_band(self.current_band)
+                # Initialize threshold value
         if hasattr(self, 'threshold_spinbox') and hasattr(self, 'band_spikes'):
             initial_threshold = self.threshold_spinbox.value()
             self.band_spikes.set_threshold(initial_threshold)
@@ -300,6 +304,9 @@ class TabbedAnalysisPanel(QWidget):
         
     def on_spikes_band_changed(self, band_name):
         """Handle band changes for Band Spikes tab"""
+        print(f"🎨 TabbedPanel: Band changed to {band_name} for Band Spikes")
+        self.band_spikes.set_band(band_name)
+        self.current_band = band_name
         
     def on_threshold_changed(self, value):
         """Handle threshold changes"""

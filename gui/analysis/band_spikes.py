@@ -62,9 +62,9 @@ class BandSpikes(QWidget):
         
     def set_band(self, band_name):
         """Set the frequency band to analyze"""
+        print(f"🎵 BandSpikes: Setting band to {band_name}")
         self.current_band = band_name
-        self.update_plot()
-        
+        self.update_plot()        
     def set_time_window(self, current_time, total_duration):
         """Set the current time window"""
         self.current_time = max(0, current_time)
