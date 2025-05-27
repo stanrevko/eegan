@@ -4,13 +4,14 @@ Main analysis panel with tabs for different analysis tools
 """
 
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QGroupBox,
-                            QPushButton, QFrame)
+                            QPushButton, QFrame, QLabel, QComboBox, QSpinBox)
 from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5.QtGui import QIcon
 
 from gui.analysis import AnalysisControls, DFAAnalysis, EEGTimelineAnalysis
 from gui.analysis.band_spikes import BandSpikes
 from gui.analysis.all_bands_power import AllBandsPower
+from utils.ui_helpers import create_dark_button, create_dark_combobox
 
 
 class CollapsibleSidebar(QWidget):
@@ -71,6 +72,10 @@ class CollapsibleSidebar(QWidget):
             QWidget().setLayout(self.content.layout())
         self.content.setLayout(layout)
 
+    def show_threshold_controls(self, show=True):
+        """Show or hide threshold controls - for Band Spikes tab"""
+        # This is handled by tab switching - no specific implementation needed
+        pass
 
 class TabbedAnalysisPanel(QWidget):
     """Tabbed frequency band analysis panel with multiple analysis tools"""
@@ -85,6 +90,7 @@ class TabbedAnalysisPanel(QWidget):
         self.current_channel = 0
         self.current_time = 0
         self.current_duration = 0
+        self.current_band = 'Alpha'
         
         self.init_ui()
         
@@ -176,9 +182,11 @@ class TabbedAnalysisPanel(QWidget):
         self.spikes_sidebar = CollapsibleSidebar()
         sidebar_layout = QVBoxLayout()
         sidebar_layout.setContentsMargins(5, 5, 5, 5)
+        sidebar_layout.setSpacing(10)  # Add spacing between widgets
         
         # Controls header for Band Spikes tab
         controls_layout = QVBoxLayout()
+        controls_layout.setSpacing(10)  # Add spacing between widgets
         
         # Channel selector for Band Spikes
         from gui.analysis import ChannelSelector, BandSelector
@@ -188,6 +196,57 @@ class TabbedAnalysisPanel(QWidget):
         # Band selector for Band Spikes
         self.spikes_band_selector = BandSelector()
         controls_layout.addWidget(self.spikes_band_selector)
+        
+        # Add spacer before threshold controls
+        controls_layout.addSpacing(20)  # Add 20 pixels of space
+        
+        # Threshold controls
+        threshold_group = QGroupBox("Threshold Controls")
+        threshold_group.setStyleSheet("""
+            QGroupBox {
+                background-color: #2d2d2d;
+                border: 1px solid #3d3d3d;
+                border-radius: 5px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                color: #ffffff;
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px;
+            }
+        """)
+        threshold_layout = QVBoxLayout()
+        threshold_layout.setSpacing(8)  # Add spacing between threshold controls
+        
+        threshold_layout.addWidget(QLabel("Threshold:"))
+        self.threshold_spinbox = QSpinBox()
+        self.threshold_spinbox.setRange(10, 50)
+        self.threshold_spinbox.setValue(20)  # Default 2.0x
+        self.threshold_spinbox.setSuffix("x")
+        self.threshold_spinbox.setStyleSheet("""
+            QSpinBox {
+                background-color: #3c3c3c;
+                border: 1px solid #555555;
+                color: #ffffff;
+                padding: 2px;
+                border-radius: 3px;
+                min-width: 60px;
+            }
+        """)
+        threshold_layout.addWidget(self.threshold_spinbox)
+        
+        self.detect_button = create_dark_button("Detect Spikes")
+        self.detect_button.clicked.connect(self.on_detect_spikes)
+        threshold_layout.addWidget(self.detect_button)
+        
+        self.spike_count_label = QLabel("Spikes: 0")
+        self.spike_count_label.setStyleSheet("color: #ff9800; font-weight: bold;")
+        threshold_layout.addWidget(self.spike_count_label)
+        
+        threshold_group.setLayout(threshold_layout)
+        controls_layout.addWidget(threshold_group)
         
         controls_layout.addStretch()
         self.spikes_sidebar.set_content_layout(controls_layout)
@@ -218,6 +277,12 @@ class TabbedAnalysisPanel(QWidget):
             # Also relay from spikes band selector (when user switches to spikes tab)
             self.spikes_band_selector.band_changed.connect(self.band_changed.emit)
         
+        # Connect tab change handler
+        self.tab_widget.currentChanged.connect(self.on_tab_changed)
+        # Connect threshold spinbox
+        if hasattr(self, 'threshold_spinbox'):
+            self.threshold_spinbox.valueChanged.connect(self.on_threshold_changed)
+        
         # Spike detection signal
         self.band_spikes.spike_detected.connect(self.spike_detected.emit)
         
@@ -228,6 +293,19 @@ class TabbedAnalysisPanel(QWidget):
     def on_spikes_band_changed(self, band_name):
         """Handle band changes for Band Spikes tab"""
         self.band_spikes.set_band(band_name)
+        
+    def on_threshold_changed(self, value):
+        """Handle threshold changes"""
+        if isinstance(self.tab_widget.currentWidget(), BandSpikes):
+            self.band_spikes.set_threshold(value)
+            self.band_spikes.update_plot()  # Force plot update
+            
+    def on_detect_spikes(self):
+        """Handle spike detection"""
+        if isinstance(self.tab_widget.currentWidget(), BandSpikes):
+            self.band_spikes.detect_spikes()
+            self.spike_count_label.setText(f"Spikes: {self.band_spikes.get_spike_count()}")
+            self.band_spikes.update_plot()  # Force plot update
         
     def set_analyzer(self, analyzer):
         """Set the EEG analyzer for all components"""
@@ -314,3 +392,51 @@ class TabbedAnalysisPanel(QWidget):
         """Set current tab by index"""
         if 0 <= index < self.tab_widget.count():
             self.tab_widget.setCurrentIndex(index)
+
+    def on_tab_changed(self, index):
+        """Handle tab changes"""
+        # Show/hide threshold controls based on current tab
+        self.spikes_sidebar.show_threshold_controls(index == 1)  # Band Spikes tab
+        
+        # Update current widget
+        current_widget = self.tab_widget.currentWidget()
+        if current_widget:
+            current_widget.set_channel(self.current_channel)
+            if hasattr(current_widget, 'set_band'):
+                current_widget.set_band(self.current_band)
+                
+    def on_channel_changed(self, index):
+        """Handle channel selection changes"""
+        self.current_channel = index
+        current_widget = self.tab_widget.currentWidget()
+        if current_widget:
+            current_widget.set_channel(index)
+            
+    def on_band_changed(self, band):
+        """Handle band selection changes"""
+        self.current_band = band
+        current_widget = self.tab_widget.currentWidget()
+        if current_widget and hasattr(current_widget, 'set_band'):
+            current_widget.set_band(band)
+            
+    def on_show_all(self):
+        """Handle show all channels"""
+        if isinstance(self.tab_widget.currentWidget(), EEGTimelineAnalysis):
+            self.tab_widget.currentWidget().show_all_channels()
+            
+    def on_hide_all(self):
+        """Handle hide all channels"""
+        if isinstance(self.tab_widget.currentWidget(), EEGTimelineAnalysis):
+            self.tab_widget.currentWidget().hide_all_channels()
+            
+    def show_threshold_controls(self, show=True):
+        """Show or hide threshold controls"""
+        self.spikes_sidebar.show_threshold_controls(show)
+        
+    def get_threshold_value(self):
+        """Get the current threshold value"""
+        return self.threshold_spinbox.value()
+        
+    def update_spike_count(self, count):
+        """Update the spike count label"""
+        self.spike_count_label.setText(f"Spikes: {count}")

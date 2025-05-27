@@ -5,8 +5,8 @@ Widget for analyzing spike events in frequency bands
 
 import numpy as np
 import pyqtgraph as pg
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QPushButton
-from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtWidgets import QWidget, QVBoxLayout
+from PyQt5.QtCore import pyqtSignal, Qt
 from utils.ui_helpers import setup_dark_plot
 
 
@@ -32,51 +32,6 @@ class BandSpikes(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         
-        # Controls
-        controls_layout = QHBoxLayout()
-        
-        controls_layout.addWidget(QLabel("Threshold:"))
-        self.threshold_spinbox = QSpinBox()
-        self.threshold_spinbox.setRange(10, 50)
-        self.threshold_spinbox.setValue(int(self.threshold_multiplier * 10))
-        self.threshold_spinbox.setSuffix("x")
-        self.threshold_spinbox.valueChanged.connect(self.on_threshold_changed)
-        self.threshold_spinbox.setStyleSheet("""
-            QSpinBox {
-                background-color: #3c3c3c;
-                border: 1px solid #555555;
-                color: #ffffff;
-                padding: 2px;
-                border-radius: 3px;
-                min-width: 60px;
-            }
-        """)
-        controls_layout.addWidget(self.threshold_spinbox)
-        
-        self.detect_button = QPushButton("Detect Spikes")
-        self.detect_button.clicked.connect(self.detect_spikes)
-        self.detect_button.setStyleSheet("""
-            QPushButton {
-                background-color: #4caf50;
-                border: none;
-                color: white;
-                padding: 5px 10px;
-                border-radius: 3px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #45a049;
-            }
-        """)
-        controls_layout.addWidget(self.detect_button)
-        
-        self.spike_count_label = QLabel("Spikes: 0")
-        self.spike_count_label.setStyleSheet("color: #ff9800; font-weight: bold;")
-        controls_layout.addWidget(self.spike_count_label)
-        
-        controls_layout.addStretch()
-        layout.addLayout(controls_layout)
-        
         # Create plot widget
         self.plot_widget = pg.PlotWidget()
         setup_dark_plot(self.plot_widget, "Time (seconds)", "Power (μV²)")
@@ -85,12 +40,11 @@ class BandSpikes(QWidget):
         self.plot_widget.showGrid(x=True, y=True, alpha=0.3)
         self.plot_widget.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
         
-        layout.addWidget(self.plot_widget)
+        # Set initial plot range
+        self.plot_widget.setYRange(0, 100)
+        self.plot_widget.setXRange(0, 10)
         
-    def on_threshold_changed(self, value):
-        """Handle threshold changes"""
-        self.threshold_multiplier = value / 10.0
-        self.update_plot()
+        layout.addWidget(self.plot_widget)
         
     def set_analyzer(self, analyzer):
         """Set the EEG analyzer"""
@@ -98,7 +52,8 @@ class BandSpikes(QWidget):
         if analyzer and hasattr(analyzer, 'processor') and analyzer.processor:
             self.duration = analyzer.processor.get_duration()
             self.plot_widget.getPlotItem().getViewBox().setLimits(xMax=self.duration)
-        self.update_plot()
+            # Initial plot update
+            self.update_plot()
         
     def set_channel(self, channel_idx):
         """Set the channel to analyze"""
@@ -117,52 +72,45 @@ class BandSpikes(QWidget):
         self.plot_widget.getPlotItem().getViewBox().setLimits(xMax=total_duration)
         self.update_plot()
         
+    def set_threshold(self, value):
+        """Set the threshold multiplier"""
+        self.threshold_multiplier = value / 10.0
+        self.update_plot()
+        
     def detect_spikes(self):
-        """Detect spike events in the current band"""
+        """Detect spikes in the current band"""
         if not self.analyzer:
             return
             
         try:
-            # Get power data for the current band
+            # Get band power data
             power_data = self.analyzer.calculate_band_power(
                 self.current_band,
                 channel_idx=self.current_channel
             )
             
-            if power_data is not None and len(power_data) > 0:
-                # Calculate threshold
-                mean_power = np.mean(power_data)
-                std_power = np.std(power_data)
-                threshold = mean_power + (self.threshold_multiplier * std_power)
+            if power_data is None or len(power_data) == 0:
+                return
                 
-                # Find spikes
-                spike_indices = np.where(power_data > threshold)[0]
-                
-                # Convert to time points
-                time_vector = np.linspace(0, self.duration, len(power_data))
-                spike_times = time_vector[spike_indices]
-                
-                # Group nearby spikes (within 0.5 seconds)
-                self.spike_events = []
-                if len(spike_times) > 0:
-                    current_spike = spike_times[0]
-                    for spike_time in spike_times[1:]:
-                        if spike_time - current_spike > 0.5:
-                            self.spike_events.append(current_spike)
-                            current_spike = spike_time
-                    self.spike_events.append(current_spike)
-                
-                self.spike_count_label.setText(f"Spikes: {len(self.spike_events)}")
-                
-                # Emit signals for detected spikes
-                for spike_time in self.spike_events:
-                    self.spike_detected.emit(spike_time, self.current_band)
-                    
+            # Calculate threshold
+            mean_power = np.mean(power_data)
+            std_power = np.std(power_data)
+            threshold = mean_power + (self.threshold_multiplier * std_power)
+            
+            # Detect spikes
+            self.spike_events = []
+            for i, power in enumerate(power_data):
+                if power > threshold:
+                    time_step = self.duration / len(power_data) if len(power_data) > 0 else 1.0
+                    time = i * time_step
+                    self.spike_events.append((time, power))
+                    self.spike_detected.emit(time, self.current_band)
+            
+            self.update_plot()
+            
         except Exception as e:
             print(f"Error detecting spikes: {e}")
             
-        self.update_plot()
-        
     def update_plot(self):
         """Update the spike analysis plot"""
         if not self.analyzer:
@@ -172,62 +120,59 @@ class BandSpikes(QWidget):
             # Clear existing plot
             self.plot_widget.clear()
             
-            # Get power data
+            # Get band power data
             power_data = self.analyzer.calculate_band_power(
                 self.current_band,
                 channel_idx=self.current_channel
             )
             
-            if power_data is not None and len(power_data) > 0:
-                # Create time vector
-                time_vector = np.linspace(0, self.duration, len(power_data))
+            if power_data is None or len(power_data) == 0:
+                print("No power data available")
+                return
                 
-                # Band colors
-                band_colors = {
-                    'Alpha': '#ff9800',
-                    'Beta': '#2196f3',
-                    'Theta': '#9c27b0',
-                    'Delta': '#4caf50',
-                    'Gamma': '#f44336'
-                }
+            # Create time vector
+            time_step = self.duration / len(power_data) if len(power_data) > 0 else 1.0
+            times = np.arange(len(power_data)) * time_step
+            
+            # Plot power data
+            pen = pg.mkPen(color='#2196f3', width=2)  # Blue color
+            self.plot_widget.plot(times, power_data, pen=pen)
+            
+            # Calculate and plot threshold
+            mean_power = np.mean(power_data)
+            std_power = np.std(power_data)
+            threshold = mean_power + (self.threshold_multiplier * std_power)
+            
+            # Plot threshold line
+            threshold_line = pg.InfiniteLine(
+                pos=threshold,
+                angle=0,
+                pen=pg.mkPen(color='#ff9800', width=2, style=Qt.DashLine)  # Orange dashed line
+            )
+            self.plot_widget.addItem(threshold_line)
+            
+            # Plot detected spikes
+            if self.spike_events:
+                spike_times = [event[0] for event in self.spike_events]
+                spike_powers = [event[1] for event in self.spike_events]
                 
-                color = band_colors.get(self.current_band, '#ff9800')
-                pen = pg.mkPen(color=color, width=2)
-                
-                # Plot power data
-                self.plot_widget.plot(time_vector, power_data, pen=pen)
-                
-                # Calculate and plot threshold line
-                mean_power = np.mean(power_data)
-                std_power = np.std(power_data)
-                threshold = mean_power + (self.threshold_multiplier * std_power)
-                
-                threshold_line = pg.InfiniteLine(pos=threshold, angle=0, 
-                                               pen=pg.mkPen(color='#ff0000', width=1, style=2))
-                self.plot_widget.addItem(threshold_line)
-                
-                # Mark spike events
-                for spike_time in self.spike_events:
-                    spike_line = pg.InfiniteLine(pos=spike_time, angle=90, 
-                                               pen=pg.mkPen(color='#ffff00', width=2))
-                    self.plot_widget.addItem(spike_line)
-                
-                # Set ranges
-                self.plot_widget.setXRange(0, self.duration, padding=0)
-                y_max = np.max(power_data) if np.max(power_data) > 0 else 1
-                self.plot_widget.setYRange(0, y_max * 1.5, padding=0)
-                
-                # Add current position indicator
-                if 0 <= self.current_time <= self.duration:
-                    pos_line = pg.InfiniteLine(pos=self.current_time, angle=90, 
-                                             pen=pg.mkPen(color='#00ff00', width=2, style=2))
-                    self.plot_widget.addItem(pos_line)
-                    
+                scatter = pg.ScatterPlotItem(
+                    x=spike_times,
+                    y=spike_powers,
+                    size=10,
+                    pen=None,
+                    brush='#f44336'  # Red color
+                )
+                self.plot_widget.addItem(scatter)
+            
+            # Set plot ranges
+            y_max = np.max(power_data) * 1.2 if np.max(power_data) > 0 else 100
+            self.plot_widget.setYRange(0, y_max)
+            self.plot_widget.setXRange(0, self.duration if self.duration > 0 else 10)
+            
         except Exception as e:
             print(f"Error updating spike plot: {e}")
             
-    def clear_plot(self):
-        """Clear the plot"""
-        self.plot_widget.clear()
-        self.spike_events = []
-        self.spike_count_label.setText("Spikes: 0")
+    def get_spike_count(self):
+        """Get the number of detected spikes"""
+        return len(self.spike_events)

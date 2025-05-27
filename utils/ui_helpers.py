@@ -3,7 +3,7 @@ UI Helper Utilities
 Common UI components and helper functions
 """
 
-from PyQt5.QtWidgets import QStyle, QPushButton, QSlider, QLabel, QHBoxLayout, QVBoxLayout
+from PyQt5.QtWidgets import QStyle, QPushButton, QSlider, QLabel, QHBoxLayout, QVBoxLayout, QComboBox
 from PyQt5.QtCore import Qt, pyqtSignal
 import pyqtgraph as pg
 
@@ -176,3 +176,59 @@ class ChannelVisibilityWidget:
         """Set visibility for a specific channel"""
         if channel_idx in self.checkboxes:
             self.checkboxes[channel_idx].setChecked(visible)
+
+
+def create_dark_button(text, parent=None):
+    """Create a dark-themed button"""
+    button = QPushButton(text, parent)
+    button.setStyleSheet("""
+        QPushButton {
+            background-color: #3c3c3c;
+            border: 1px solid #555555;
+            color: #ffffff;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        QPushButton:hover {
+            background-color: #4a4a4a;
+        }
+        QPushButton:pressed {
+            background-color: #2d2d2d;
+        }
+    """)
+    return button
+
+
+def create_dark_combobox(parent=None):
+    """Create a dark-themed combobox"""
+    combobox = QComboBox(parent)
+    combobox.setStyleSheet("""
+        QComboBox {
+            background-color: #3c3c3c;
+            border: 1px solid #555555;
+            color: #ffffff;
+            padding: 2px 5px;
+            border-radius: 3px;
+            min-width: 100px;
+        }
+        QComboBox:hover {
+            border: 1px solid #666666;
+        }
+        QComboBox::drop-down {
+            border: none;
+            width: 20px;
+        }
+        QComboBox::down-arrow {
+            image: none;
+            border: none;
+        }
+        QComboBox QAbstractItemView {
+            background-color: #3c3c3c;
+            color: #ffffff;
+            selection-background-color: #4a4a4a;
+            selection-color: #ffffff;
+            border: 1px solid #555555;
+        }
+    """)
+    return combobox
