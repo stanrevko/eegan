@@ -48,6 +48,7 @@ class TimeframeControls(QWidget):
         
         # Timeframe label
         label = QLabel("📊 Analysis Window:")
+        label.setToolTip("Set the time range for analysis and timeline display")
         label.setStyleSheet("font-weight: bold; color: #ffffff;")
         layout.addWidget(label)
         
@@ -59,6 +60,7 @@ class TimeframeControls(QWidget):
         self.start_spin.setSuffix("s")
         self.start_spin.setDecimals(1)
         self.start_spin.valueChanged.connect(self.on_timeframe_changed)
+        self.start_spin.setToolTip("Start time for analysis window")
         layout.addWidget(self.start_spin)
         
         # End time
@@ -69,11 +71,13 @@ class TimeframeControls(QWidget):
         self.end_spin.setSuffix("s")
         self.end_spin.setDecimals(1)
         self.end_spin.valueChanged.connect(self.on_timeframe_changed)
+        self.end_spin.setToolTip("End time for analysis window")
         layout.addWidget(self.end_spin)
         
         # Set full range button
         self.full_range_btn = QPushButton("Full Range")
         self.full_range_btn.clicked.connect(self.set_full_range)
+        self.full_range_btn.setToolTip("Reset to show full EEG recording duration")
         layout.addWidget(self.full_range_btn)
         
         # Apply dark styling
@@ -587,6 +591,8 @@ class MainWindow(QMainWindow):
             
             
     def on_timeframe_changed(self, start_time, end_time):
+        """Handle timeframe changes for analysis window"""
+        print(f"🏠 MainWindow: Timeframe changed to {start_time:.1f}s - {end_time:.1f}s")
         """Handle timeframe changes for analysis window"""
         if self.analyzer:
             # Update analysis to use specific timeframe

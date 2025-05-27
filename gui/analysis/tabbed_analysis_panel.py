@@ -375,17 +375,41 @@ class TabbedAnalysisPanel(QWidget):
         
     def set_time_window(self, current_time, total_duration):
         """Set the current time window"""
+        print(f"⏱️ TabbedPanel: Setting time window - current: {current_time}, duration: {total_duration}")
         self.current_time = current_time
         self.current_duration = total_duration
-        self.band_spikes.set_time_window(current_time, total_duration)
-        self.all_bands_power.set_time_window(current_time, total_duration)
-        self.eeg_timeline.set_time_window(current_time, total_duration)
-        self.dfa_analysis.set_timeframe(current_time, current_time + total_duration)
+        
+        # Update all analysis tabs with current time position
+        if hasattr(self, 'band_spikes'):
+            self.band_spikes.set_time_window(current_time, total_duration)
+        if hasattr(self, 'all_bands_power'):
+            self.all_bands_power.set_time_window(current_time, total_duration)
+        if hasattr(self, 'eeg_timeline'):
+            self.eeg_timeline.set_time_window(current_time, total_duration)
+        if hasattr(self, 'dfa_analysis'):
+            self.dfa_analysis.set_timeframe(current_time, current_time + total_duration)
         
     def set_timeframe(self, start_time, end_time):
         """Set analysis timeframe for all tabs"""
-        self.all_bands_power.set_timeframe(start_time, end_time)
-        self.dfa_analysis.set_timeframe(start_time, end_time)
+        print(f"⏱️ TabbedPanel: Setting timeframe - start: {start_time}, end: {end_time}")
+        
+        # Update EEG Timeline tab (primary tab)
+        if hasattr(self, 'eeg_timeline'):
+            self.eeg_timeline.set_timeframe(start_time, end_time)
+            print(f"✅ TabbedPanel: Updated EEG Timeline X-axis range to {start_time:.1f}s - {end_time:.1f}s")
+        
+        # Update Band Spikes tab
+        if hasattr(self, 'band_spikes'):
+            # Convert to time window format for band spikes
+            duration = end_time - start_time
+            self.band_spikes.set_time_window(start_time, duration)
+            self.band_spikes.update_plot()
+            
+        # Update other analysis tabs
+        if hasattr(self, 'all_bands_power'):
+            self.all_bands_power.set_timeframe(start_time, end_time)
+        if hasattr(self, 'dfa_analysis'):
+            self.dfa_analysis.set_timeframe(start_time, end_time)
         
     def get_current_band(self):
         """Get currently selected frequency band"""
