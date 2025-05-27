@@ -10,6 +10,7 @@ echo
 # Find all relevant files, excluding common ignore patterns
 find . -type f \
   -not -path './.git/*' \
+  -not -path './.eeg_data/*' \
   -not -path './__pycache__/*' \
   -not -path './venv/*' \
   -not -path './env/*' \
