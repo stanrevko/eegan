@@ -4,7 +4,7 @@ Main analysis panel with tabs for different analysis tools
 """
 
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QGroupBox,
-                            QPushButton, QFrame, QLabel, QComboBox, QSpinBox)
+                            QPushButton, QFrame, QLabel, QComboBox, QSpinBox, QDoubleSpinBox)
 from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5.QtGui import QIcon
 
@@ -222,13 +222,19 @@ class TabbedAnalysisPanel(QWidget):
         threshold_layout = QVBoxLayout()
         threshold_layout.setSpacing(8)  # Add spacing between threshold controls
         
-        threshold_layout.addWidget(QLabel("Threshold:"))
-        self.threshold_spinbox = QSpinBox()
-        self.threshold_spinbox.setRange(10, 50)
-        self.threshold_spinbox.setValue(20)  # Default 2.0x
-        self.threshold_spinbox.setSuffix("x")
+        threshold_layout.addWidget(QLabel("Spike Threshold (Standard Deviations):"))
+        self.threshold_spinbox = QDoubleSpinBox()
+        self.threshold_spinbox.setRange(1.0, 5.0)
+        self.threshold_spinbox.setValue(2.0)  # Default 2.0σ standard deviations
+        self.threshold_spinbox.setSuffix("σ")
+        self.threshold_spinbox.setDecimals(1)  # Show 1 decimal place
+        self.threshold_spinbox.setToolTip(
+            "Number of standard deviations above the mean power.\n"
+            "Higher values = less sensitive (fewer spikes detected)\n"
+            "Lower values = more sensitive (more spikes detected)\n"
+            "Typical range: 1.5σ (very sensitive) to 3.0σ (conservative)")
         self.threshold_spinbox.setStyleSheet("""
-            QSpinBox {
+            QDoubleSpinBox {
                 background-color: #3c3c3c;
                 border: 1px solid #555555;
                 color: #ffffff;
