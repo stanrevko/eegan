@@ -50,3 +50,4 @@ eeg_settings.json
 # Temporary files
 *.tmp
 *.temp
+*.app/
