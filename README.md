@@ -10,16 +10,19 @@ A comprehensive Python-based application for electroencephalogram (EEG) data ana
 - **Power Spectral Analysis**: Sliding window power calculations
 - **Advanced Filtering**: Butterworth bandpass filters for each frequency band
 
-### 🎛️ New Tabbed Analysis Panel
-- **📊 Band Power**: Enhanced single-band power analysis with timeframe selection
-- **⚡ Band Spikes**: NEW spike detection with configurable thresholds and automatic counting
-- **📈 All Bands**: NEW comparative visualization of all frequency bands simultaneously
+### 🎛️ Clean Tabbed Analysis Interface
+- **📺 EEG Timeline**: PRIMARY tab with full signal visualization and timeline controls
+- **📊 Band Power**: Enhanced single-band power analysis with integrated channel/band selectors
+- **⚡ Band Spikes**: Spike detection with configurable thresholds and integrated controls
+- **📈 All Bands**: Comparative visualization of all frequency bands simultaneously
+- **📊 DFA Analysis**: Detrended fluctuation analysis
 
 ### 🖥️ User Interface
 - **Dark Theme**: Professional dark interface optimized for long analysis sessions
+- **Clean Design**: Borderless tabs and streamlined controls for maximum space efficiency
 - **Interactive Controls**: Channel visibility toggles, Y-axis scaling, timeline navigation
 - **File Browser**: Automatic EEG data loading with folder management
-- **Responsive Layout**: Resizable panels with optimized space allocation
+- **Individual Tab Controls**: Channel and band selectors integrated directly into relevant tabs
 
 ### 📈 Visualization Features
 - **Timeline View**: Scrollable EEG signal display with time markers
@@ -66,14 +69,24 @@ python main.py
 
 ### Analysis Tabs
 
+#### 📺 EEG Timeline Tab (Primary)
+- **First tab position** for immediate access to signal visualization
+- View complete EEG signal with full timeline controls
+- Adjust channel visibility using "Select All" and "None" buttons
+- Control Y-scale (default: 50mV) and spacing (default: 1x)
+- Navigate through time using integrated timeline controls
+
 #### 📊 Band Power Tab
+- **Integrated Controls**: Channel and Band selectors built into the tab
 - Select frequency band using the dropdown selector
+- Choose channel for analysis from the channel dropdown
 - Adjust analysis window and step size with controls
 - View real-time power calculations over time
 - Set custom timeframes for focused analysis
 
 #### ⚡ Band Spikes Tab
-- Choose frequency band for spike analysis
+- **Integrated Controls**: Channel and Band selectors built into the tab
+- Choose frequency band and channel for spike analysis
 - Adjust detection threshold (1.0x - 5.0x standard deviation)
 - Click "Detect Spikes" to identify and mark spike events
 - View spike count and timestamps in console
@@ -84,11 +97,16 @@ python main.py
 - Identify dominant frequency patterns
 - Analyze relative band activity
 
-### Controls
-- **Channel Selection**: Use timeline controls to switch between EEG channels
-- **Time Navigation**: Scroll through EEG data using timeline controls
-- **Y-Axis Scaling**: Adjust amplitude scaling for optimal visualization
-- **Band Selection**: Choose frequency bands for focused analysis
+#### 📊 DFA Analysis Tab
+- Perform detrended fluctuation analysis
+- Configure analysis parameters
+- Visualize scaling relationships
+
+### Interface Features
+- **Clean Tab Design**: No unnecessary borders for maximum space efficiency
+- **Independent Tab Controls**: Each analysis tab has its own relevant selectors
+- **Responsive Layout**: Resizable panels with optimized space allocation
+- **Dark Theme**: Professional appearance optimized for extended use
 
 ## 🏗️ Architecture
 
@@ -98,9 +116,12 @@ eegan/
 ├── main.py                 # Application entry point
 ├── gui/                    # User interface components
 │   ├── analysis/          # Analysis panel components
-│   │   ├── band_spikes.py       # Spike detection tool
-│   │   ├── all_bands_power.py   # Multi-band comparison
-│   │   └── tabbed_analysis_panel.py  # Main tabbed interface
+│   │   ├── tabbed_analysis_panel.py  # Main clean tabbed interface
+│   │   ├── eeg_timeline_analysis.py  # EEG Timeline (Primary Tab)
+│   │   ├── power_plot.py            # Band Power (+ selectors)
+│   │   ├── band_spikes.py           # Band Spikes (+ selectors)
+│   │   ├── all_bands_power.py       # Multi-band comparison
+│   │   └── dfa_analysis.py          # DFA Analysis
 │   ├── plots/             # Visualization widgets
 │   ├── controls/          # UI control components
 │   └── main_window.py     # Main application window
@@ -117,7 +138,7 @@ eegan/
 - **Power Analyzer**: Frequency band power calculation algorithms
 - **Filter Bank**: Butterworth bandpass filters for each frequency band
 - **Visualization Engine**: PyQtGraph-based real-time plotting
-- **UI Framework**: PyQt5-based modern interface
+- **Clean UI Framework**: PyQt5-based modern borderless interface
 
 ## 🔧 Technical Details
 
@@ -194,13 +215,28 @@ python test_gui.py
 
 ## 🔄 Recent Updates
 
+### Version 2.2 - Clean Tabbed Interface (Sprint 4)
+- **NEW**: EEG Timeline moved to first tab position for primary access
+- **NEW**: Channel and Band selectors integrated directly into relevant tabs
+- **NEW**: Borderless tab design for cleaner appearance and maximum space
+- **IMPROVED**: Independent controls per tab (Band Power, Band Spikes)
+- **ENHANCED**: Streamlined user experience with focused workflows
+- **MAINTAINED**: Full backward compatibility and signal connections
+
+### Version 2.1 - Major UI Enhancements (Sprint 3)
+- **NEW**: Timeline controls moved to bottom bar
+- **NEW**: "Select All" and "None" buttons for channel visibility
+- **NEW**: Y-scale default set to 50mV, spacing to 1x
+- **IMPROVED**: Display controls layout (vertical under channel visibility)
+- **ENHANCED**: EEG Timeline integration and functionality
+
 ### Version 2.0 - Tabbed Analysis Panel
-- **NEW**: Three-tab analysis interface
+- **NEW**: Five-tab analysis interface
 - **NEW**: Spike detection with configurable thresholds
 - **NEW**: Multi-band comparative visualization
-- **Enhanced**: Original band power analysis
-- **Fixed**: Recursion errors and signal handling
-- **Improved**: User experience and workflow
+- **ENHANCED**: Original band power analysis
+- **FIXED**: Recursion errors and signal handling
+- **IMPROVED**: User experience and workflow
 
 ## 🤝 Contributing
 
@@ -232,3 +268,5 @@ For questions, issues, or feature requests:
 ---
 
 *Built with ❤️ for the neuroscience and EEG analysis community*
+
+**Current Version**: 2.2 (Sprint 4 - Clean Tabbed Interface)
