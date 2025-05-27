@@ -398,26 +398,48 @@ class TabbedAnalysisPanel(QWidget):
         # Show/hide threshold controls based on current tab
         self.spikes_sidebar.show_threshold_controls(index == 1)  # Band Spikes tab
         
-        # Update current widget
-        current_widget = self.tab_widget.currentWidget()
-        if current_widget:
-            current_widget.set_channel(self.current_channel)
-            if hasattr(current_widget, 'set_band'):
-                current_widget.set_band(self.current_band)
+        # Handle Band Spikes tab specially (it's wrapped in a container)
+        if index == 1:  # Band Spikes tab
+            if hasattr(self, 'band_spikes'):
+                self.band_spikes.set_channel(self.current_channel)
+                self.band_spikes.set_band(self.current_band)
+        else:
+            # Update other tabs normally
+            current_widget = self.tab_widget.currentWidget()
+            if current_widget:
+                if hasattr(current_widget, 'set_channel'):
+                    current_widget.set_channel(self.current_channel)
+                if hasattr(current_widget, 'set_band'):
+                    current_widget.set_band(self.current_band)
                 
     def on_channel_changed(self, index):
         """Handle channel selection changes"""
         self.current_channel = index
-        current_widget = self.tab_widget.currentWidget()
-        if current_widget:
-            current_widget.set_channel(index)
+        
+        # Handle Band Spikes tab specially
+        current_tab_index = self.tab_widget.currentIndex()
+        if current_tab_index == 1:  # Band Spikes tab
+            if hasattr(self, 'band_spikes'):
+                self.band_spikes.set_channel(index)
+        else:
+            current_widget = self.tab_widget.currentWidget()
+            if current_widget:
+                if hasattr(current_widget, 'set_channel'):
+                    current_widget.set_channel(index)
             
     def on_band_changed(self, band):
         """Handle band selection changes"""
         self.current_band = band
-        current_widget = self.tab_widget.currentWidget()
-        if current_widget and hasattr(current_widget, 'set_band'):
-            current_widget.set_band(band)
+        
+        # Handle Band Spikes tab specially
+        current_tab_index = self.tab_widget.currentIndex()
+        if current_tab_index == 1:  # Band Spikes tab
+            if hasattr(self, 'band_spikes'):
+                self.band_spikes.set_band(band)
+        else:
+            current_widget = self.tab_widget.currentWidget()
+            if current_widget and hasattr(current_widget, 'set_band'):
+                current_widget.set_band(band)
             
     def on_show_all(self):
         """Handle show all channels"""
