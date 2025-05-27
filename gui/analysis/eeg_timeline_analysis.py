@@ -37,7 +37,13 @@ class EEGTimelineAnalysis(QWidget):
         main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Left panel for controls
+        # Create plot widget first (now on the left)
+        self.plot_widget = pg.PlotWidget()
+        setup_dark_plot(self.plot_widget, "Time (seconds)", "Amplitude (μV)")
+        self.plot_widget.showGrid(x=True, y=True, alpha=0.3)
+        main_layout.addWidget(self.plot_widget, stretch=1)
+        
+        # Right panel for controls
         controls_panel = QWidget()
         controls_panel.setFixedWidth(250)
         controls_layout = QVBoxLayout(controls_panel)
@@ -94,25 +100,40 @@ class EEGTimelineAnalysis(QWidget):
         buttons_layout.addWidget(self.select_none_btn)
         channels_layout.addLayout(buttons_layout)
         
-        # Channel list in scroll area
+        # Channel checkboxes container
+        self.channels_container = QWidget()
+        self.channels_layout = QVBoxLayout(self.channels_container)
+        self.channels_layout.setSpacing(2)
+        
+        # Scroll area for channel checkboxes
         scroll_area = QScrollArea()
+        scroll_area.setWidget(self.channels_container)
         scroll_area.setWidgetResizable(True)
         scroll_area.setStyleSheet("""
             QScrollArea {
                 border: none;
-                background-color: #2b2b2b;
+                background-color: transparent;
+            }
+            QScrollBar:vertical {
+                border: none;
+                background: #2b2b2b;
+                width: 10px;
+                margin: 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: #555555;
+                min-height: 20px;
+                border-radius: 5px;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px;
             }
         """)
-        
-        self.channels_widget = QWidget()
-        self.channels_layout = QVBoxLayout(self.channels_widget)
-        self.channels_layout.setContentsMargins(5, 5, 5, 5)
-        scroll_area.setWidget(self.channels_widget)
-        
         channels_layout.addWidget(scroll_area)
+        
         controls_layout.addWidget(channels_group)
         
-        # Display Controls Group (moved under channel visibility, vertical layout)
+        # Display Controls Group
         display_group = QGroupBox("Display")
         display_group.setStyleSheet("""
             QGroupBox {
@@ -131,24 +152,24 @@ class EEGTimelineAnalysis(QWidget):
             }
         """)
         
-        # Vertical layout for display controls
         display_layout = QVBoxLayout(display_group)
         
-        # Y-Scale control
+        # Y-scale control
         y_scale_layout = QHBoxLayout()
         y_scale_layout.addWidget(QLabel("Y-Scale:"))
         self.y_scale_spinbox = QSpinBox()
         self.y_scale_spinbox.setRange(10, 500)
         self.y_scale_spinbox.setValue(self.y_scale)
-        self.y_scale_spinbox.setSuffix("μV")
+        self.y_scale_spinbox.setSuffix(" μV")
         self.y_scale_spinbox.valueChanged.connect(self.on_y_scale_changed)
         self.y_scale_spinbox.setStyleSheet("""
             QSpinBox {
-                background-color: #4a4a4a;
-                border: 1px solid #666666;
+                background-color: #3c3c3c;
+                border: 1px solid #555555;
                 color: #ffffff;
                 padding: 2px;
                 border-radius: 3px;
+                min-width: 60px;
             }
         """)
         y_scale_layout.addWidget(self.y_scale_spinbox)
@@ -158,17 +179,18 @@ class EEGTimelineAnalysis(QWidget):
         spacing_layout = QHBoxLayout()
         spacing_layout.addWidget(QLabel("Spacing:"))
         self.spacing_spinbox = QSpinBox()
-        self.spacing_spinbox.setRange(1, 10)
+        self.spacing_spinbox.setRange(1, 5)
         self.spacing_spinbox.setValue(self.spacing)
         self.spacing_spinbox.setSuffix("x")
         self.spacing_spinbox.valueChanged.connect(self.on_spacing_changed)
         self.spacing_spinbox.setStyleSheet("""
             QSpinBox {
-                background-color: #4a4a4a;
-                border: 1px solid #666666;
+                background-color: #3c3c3c;
+                border: 1px solid #555555;
                 color: #ffffff;
                 padding: 2px;
                 border-radius: 3px;
+                min-width: 60px;
             }
         """)
         spacing_layout.addWidget(self.spacing_spinbox)
@@ -177,27 +199,14 @@ class EEGTimelineAnalysis(QWidget):
         controls_layout.addWidget(display_group)
         controls_layout.addStretch()
         
+        # Add controls panel to main layout (now on the right)
         main_layout.addWidget(controls_panel)
         
-        # Right panel for plot
-        plot_panel = QWidget()
-        plot_layout = QVBoxLayout(plot_panel)
-        plot_layout.setContentsMargins(0, 0, 0, 0)
-        
-        # Create plot widget
-        self.plot_widget = pg.PlotWidget()
-        setup_dark_plot(self.plot_widget, "Time (seconds)", "Channels")
-        
-        # Configure plot
-        self.plot_widget.showGrid(x=True, y=True, alpha=0.3)
-        self.plot_widget.getPlotItem().getViewBox().setMouseEnabled(x=True, y=True)
-        
-        # Add current time line
-        self.time_line = pg.InfiniteLine(pos=0, angle=90, pen=pg.mkPen(color="#00ff00", width=2, style=2))
+        # Add time line
+        self.time_line = pg.InfiniteLine(angle=90, movable=True)
+        self.time_line.setPen(pg.mkPen(color='r', width=2))
+        self.time_line.sigPositionChanged.connect(self.on_time_line_moved)
         self.plot_widget.addItem(self.time_line)
-        
-        plot_layout.addWidget(self.plot_widget)
-        main_layout.addWidget(plot_panel)
         
     def select_all_channels(self):
         """Select all channels"""
@@ -234,6 +243,13 @@ class EEGTimelineAnalysis(QWidget):
         """Handle spacing changes"""
         self.spacing = value
         self.update_plot()
+        
+    def on_time_line_moved(self, line):
+        """Handle time line movement"""
+        new_time = line.pos().x()
+        if 0 <= new_time <= self.duration:
+            self.current_time = new_time
+            self.time_changed.emit(new_time)
         
     def on_channel_visibility_changed(self, channel_idx, checked):
         """Handle channel visibility changes"""

@@ -3,12 +3,73 @@ Tabbed Analysis Panel
 Main analysis panel with tabs for different analysis tools
 """
 
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QGroupBox
-from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QGroupBox,
+                            QPushButton, QFrame)
+from PyQt5.QtCore import pyqtSignal, Qt
+from PyQt5.QtGui import QIcon
 
-from gui.analysis import PowerPlot, AnalysisControls, DFAAnalysis, EEGTimelineAnalysis
+from gui.analysis import AnalysisControls, DFAAnalysis, EEGTimelineAnalysis
 from gui.analysis.band_spikes import BandSpikes
 from gui.analysis.all_bands_power import AllBandsPower
+
+
+class CollapsibleSidebar(QWidget):
+    """Collapsible sidebar widget for controls"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.is_expanded = True
+        self.init_ui()
+        
+    def init_ui(self):
+        """Initialize the sidebar UI"""
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        
+        # Toggle button
+        self.toggle_btn = QPushButton("◀")
+        self.toggle_btn.setFixedWidth(20)
+        self.toggle_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3c3c3c;
+                border: none;
+                color: #ffffff;
+                padding: 2px;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #4a4a4a;
+            }
+        """)
+        self.toggle_btn.clicked.connect(self.toggle)
+        
+        # Content container
+        self.content = QWidget()
+        self.content.setFixedWidth(250)
+        self.content.setStyleSheet("""
+            QWidget {
+                background-color: #2b2b2b;
+                border-left: 1px solid #555555;
+            }
+        """)
+        
+        # Add widgets to layout
+        layout.addWidget(self.toggle_btn, alignment=Qt.AlignRight)
+        layout.addWidget(self.content)
+        
+    def toggle(self):
+        """Toggle sidebar visibility"""
+        self.is_expanded = not self.is_expanded
+        self.content.setVisible(self.is_expanded)
+        self.toggle_btn.setText("▶" if not self.is_expanded else "◀")
+        
+    def set_content_layout(self, layout):
+        """Set the content layout"""
+        # Remove old layout if exists
+        if self.content.layout():
+            QWidget().setLayout(self.content.layout())
+        self.content.setLayout(layout)
 
 
 class TabbedAnalysisPanel(QWidget):
@@ -26,7 +87,6 @@ class TabbedAnalysisPanel(QWidget):
         self.current_duration = 0
         
         self.init_ui()
-        
         
     def init_ui(self):
         """Initialize the tabbed UI"""
@@ -76,16 +136,13 @@ class TabbedAnalysisPanel(QWidget):
         # Tab 1: EEG Timeline (moved to first position)
         self.create_eeg_timeline_tab()
         
-        # Tab 2: Band Power (with selectors moved here)
-        self.create_band_power_tab()
-        
-        # Tab 3: Band Spikes (with selectors moved here)
+        # Tab 2: Band Spikes (with selectors moved here)
         self.create_band_spikes_tab()
         
-        # Tab 4: All Band Powers
+        # Tab 3: All Band Powers
         self.create_all_bands_tab()
         
-        # Tab 5: DFA Analysis
+        # Tab 4: DFA Analysis
         self.create_dfa_tab()
         
         main_layout.addWidget(self.tab_widget)
@@ -99,51 +156,29 @@ class TabbedAnalysisPanel(QWidget):
         self.eeg_timeline = EEGTimelineAnalysis()
         self.tab_widget.addTab(self.eeg_timeline, "📺 EEG Timeline")
         
-    def create_band_power_tab(self):
-        """Create the Band Power analysis tab with selectors"""
-        tab_widget = QWidget()
-        tab_layout = QVBoxLayout(tab_widget)
-        tab_layout.setContentsMargins(5, 5, 5, 5)
-        
-        # Controls header for Band Power tab
-        controls_layout = QHBoxLayout()
-        
-        # Channel selector for Band Power
-        from gui.analysis import ChannelSelector, BandSelector
-        self.power_channel_selector = ChannelSelector()
-        controls_layout.addWidget(self.power_channel_selector)
-        
-        # Band selector for Band Power
-        self.power_band_selector = BandSelector()
-        controls_layout.addWidget(self.power_band_selector)
-        
-        controls_layout.addStretch()
-        
-        tab_layout.addLayout(controls_layout)
-        
-        # Main content layout
-        content_layout = QHBoxLayout()
-        
-        # Power plot (takes most space)
-        self.power_plot = PowerPlot()
-        content_layout.addWidget(self.power_plot, stretch=3)
-        
-        # Analysis controls
-        self.analysis_controls = AnalysisControls()
-        content_layout.addWidget(self.analysis_controls, stretch=1)
-        
-        tab_layout.addLayout(content_layout)
-        
-        self.tab_widget.addTab(tab_widget, "📊 Band Power")
-        
     def create_band_spikes_tab(self):
         """Create the Band Spikes analysis tab with selectors"""
         tab_widget = QWidget()
-        tab_layout = QVBoxLayout(tab_widget)
-        tab_layout.setContentsMargins(5, 5, 5, 5)
+        tab_layout = QHBoxLayout(tab_widget)
+        tab_layout.setContentsMargins(0, 0, 0, 0)
+        tab_layout.setSpacing(0)
+        
+        # Main content area
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(5, 5, 5, 5)
+        
+        # Band spikes widget
+        self.band_spikes = BandSpikes()
+        content_layout.addWidget(self.band_spikes)
+        
+        # Create sidebar
+        self.spikes_sidebar = CollapsibleSidebar()
+        sidebar_layout = QVBoxLayout()
+        sidebar_layout.setContentsMargins(5, 5, 5, 5)
         
         # Controls header for Band Spikes tab
-        controls_layout = QHBoxLayout()
+        controls_layout = QVBoxLayout()
         
         # Channel selector for Band Spikes
         from gui.analysis import ChannelSelector, BandSelector
@@ -155,12 +190,11 @@ class TabbedAnalysisPanel(QWidget):
         controls_layout.addWidget(self.spikes_band_selector)
         
         controls_layout.addStretch()
+        self.spikes_sidebar.set_content_layout(controls_layout)
         
-        tab_layout.addLayout(controls_layout)
-        
-        # Band spikes widget
-        self.band_spikes = BandSpikes()
-        tab_layout.addWidget(self.band_spikes)
+        # Add widgets to tab layout
+        tab_layout.addWidget(content_widget, stretch=1)
+        tab_layout.addWidget(self.spikes_sidebar)
         
         self.tab_widget.addTab(tab_widget, "⚡ Band Spikes")
         
@@ -176,14 +210,6 @@ class TabbedAnalysisPanel(QWidget):
         
     def setup_connections(self):
         """Setup signal connections between components"""
-        # Band Power tab connections
-        if hasattr(self, 'power_channel_selector'):
-            self.power_channel_selector.channel_changed.connect(self.on_power_channel_changed)
-        if hasattr(self, 'power_band_selector'):
-            self.power_band_selector.band_changed.connect(self.on_power_band_changed)
-            # Relay band changed signal to main window
-            self.power_band_selector.band_changed.connect(self.band_changed.emit)
-        
         # Band Spikes tab connections  
         if hasattr(self, 'spikes_channel_selector'):
             self.spikes_channel_selector.channel_changed.connect(self.on_spikes_channel_changed)
@@ -192,22 +218,8 @@ class TabbedAnalysisPanel(QWidget):
             # Also relay from spikes band selector (when user switches to spikes tab)
             self.spikes_band_selector.band_changed.connect(self.band_changed.emit)
         
-        # Analysis controls to power plot
-        self.analysis_controls.window_size_changed.connect(self.on_analysis_params_changed)
-        self.analysis_controls.step_size_changed.connect(self.on_analysis_params_changed)
-        
         # Spike detection signal
         self.band_spikes.spike_detected.connect(self.spike_detected.emit)
-        
-    def on_power_channel_changed(self, channel_idx):
-        """Handle channel changes for Band Power tab"""
-        self.current_channel = channel_idx
-        self.power_plot.set_channel(channel_idx)
-        self.analysis_controls.set_channel(channel_idx)
-        
-    def on_power_band_changed(self, band_name):
-        """Handle band changes for Band Power tab"""
-        self.power_plot.set_band(band_name)
         
     def on_spikes_channel_changed(self, channel_idx):
         """Handle channel changes for Band Spikes tab"""
@@ -217,16 +229,10 @@ class TabbedAnalysisPanel(QWidget):
         """Handle band changes for Band Spikes tab"""
         self.band_spikes.set_band(band_name)
         
-    def on_analysis_params_changed(self):
-        """Handle analysis parameter changes"""
-        # Trigger plot updates when parameters change
-        self.power_plot.update_plot()
-        
     def set_analyzer(self, analyzer):
         """Set the EEG analyzer for all components"""
         print(f"🔄 Tabbed Analysis Panel: Setting analyzer for all tabs...")
         self.analyzer = analyzer
-        self.power_plot.set_analyzer(analyzer)
         self.band_spikes.set_analyzer(analyzer)
         self.all_bands_power.set_analyzer(analyzer)
         print(f"📺 Tabbed Analysis Panel: Setting analyzer for EEG Timeline...")
@@ -237,28 +243,20 @@ class TabbedAnalysisPanel(QWidget):
         # Initialize channel selectors with available channels
         if analyzer and analyzer.processor and hasattr(analyzer.processor, "get_channel_names"):
             channel_names = analyzer.processor.get_channel_names()
-            if hasattr(self, 'power_channel_selector'):
-                self.power_channel_selector.set_channels(channel_names)
             if hasattr(self, 'spikes_channel_selector'):
                 self.spikes_channel_selector.set_channels(channel_names)
             # Set initial channel
             if len(channel_names) > 0:
-                if hasattr(self, 'power_channel_selector'):
-                    self.power_channel_selector.set_current_channel(0)
                 if hasattr(self, 'spikes_channel_selector'):
                     self.spikes_channel_selector.set_current_channel(0)
                 self.current_channel = 0
         elif analyzer and hasattr(analyzer, "raw") and analyzer.raw:
             # Fallback to direct raw access
             channel_names = analyzer.raw.ch_names
-            if hasattr(self, 'power_channel_selector'):
-                self.power_channel_selector.set_channels(channel_names)
             if hasattr(self, 'spikes_channel_selector'):
                 self.spikes_channel_selector.set_channels(channel_names)
             # Set initial channel
             if len(channel_names) > 0:
-                if hasattr(self, 'power_channel_selector'):
-                    self.power_channel_selector.set_current_channel(0)
                 if hasattr(self, 'spikes_channel_selector'):
                     self.spikes_channel_selector.set_current_channel(0)
                 self.current_channel = 0
@@ -267,15 +265,9 @@ class TabbedAnalysisPanel(QWidget):
         """Set the channel to analyze"""
         self.current_channel = channel_idx
         # Update channel selectors display
-        if hasattr(self, 'power_channel_selector'):
-            self.power_channel_selector.set_current_channel(channel_idx)
         if hasattr(self, 'spikes_channel_selector'):
             self.spikes_channel_selector.set_current_channel(channel_idx)
-        # Update analysis controls display
-        if hasattr(self, "analysis_controls"):
-            self.analysis_controls.set_channel(channel_idx)
         # Update all plots
-        self.power_plot.set_channel(channel_idx)
         self.band_spikes.set_channel(channel_idx)
         self.all_bands_power.set_channel(channel_idx)
         self.eeg_timeline.set_channel(channel_idx)
@@ -285,7 +277,6 @@ class TabbedAnalysisPanel(QWidget):
         """Set the current time window"""
         self.current_time = current_time
         self.current_duration = total_duration
-        self.power_plot.set_time_window(current_time, total_duration)
         self.band_spikes.set_time_window(current_time, total_duration)
         self.all_bands_power.set_time_window(current_time, total_duration)
         self.eeg_timeline.set_time_window(current_time, total_duration)
@@ -293,14 +284,13 @@ class TabbedAnalysisPanel(QWidget):
         
     def set_timeframe(self, start_time, end_time):
         """Set analysis timeframe for all tabs"""
-        self.power_plot.set_timeframe(start_time, end_time)
         self.all_bands_power.set_timeframe(start_time, end_time)
         self.dfa_analysis.set_timeframe(start_time, end_time)
         
     def get_current_band(self):
         """Get currently selected frequency band"""
-        if hasattr(self, "power_band_selector"):
-            return self.power_band_selector.get_current_band()
+        if hasattr(self, "spikes_band_selector"):
+            return self.spikes_band_selector.get_current_band()
         else:
             from eeg.frequency_bands import FrequencyBands
             return FrequencyBands().get_active_band()
@@ -311,8 +301,8 @@ class TabbedAnalysisPanel(QWidget):
         
     def get_current_channel_name(self):
         """Get current channel name"""
-        if hasattr(self, "power_channel_selector"):
-            return self.power_channel_selector.get_current_channel_name()
+        if hasattr(self, "spikes_channel_selector"):
+            return self.spikes_channel_selector.get_current_channel_name()
         else:
             return f"Channel {self.current_channel}"
         
