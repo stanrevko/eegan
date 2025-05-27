@@ -300,10 +300,22 @@ class TabbedAnalysisPanel(QWidget):
         
     def on_spikes_band_changed(self, band_name):
         """Handle band changes for Band Spikes tab"""
-        self.band_spikes.set_band(band_name)
         
+    def on_threshold_changed(self, value):
+        """Handle threshold changes"""
+        print(f"🎛️ TabbedPanel: Threshold changed to {value}, current tab: {self.tab_widget.currentIndex()}")
+        if self.tab_widget.currentIndex() == 1:  # Band Spikes tab
+            self.band_spikes.set_threshold(value)
+            self.band_spikes.update_plot()  # Force plot update
             
-        
+    def on_detect_spikes(self):
+        """Handle spike detection"""
+        print(f"🔍 TabbedPanel: Detect spikes clicked, current tab: {self.tab_widget.currentIndex()}")
+        if self.tab_widget.currentIndex() == 1:  # Band Spikes tab
+            self.band_spikes.detect_spikes()
+            self.spike_count_label.setText(f"Spikes: {self.band_spikes.get_spike_count()}")
+            self.band_spikes.update_plot()  # Force plot update
+            
     def set_analyzer(self, analyzer):
         """Set the EEG analyzer for all components"""
         print(f"🔄 Tabbed Analysis Panel: Setting analyzer for all tabs...")
