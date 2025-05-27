@@ -24,7 +24,9 @@ class BandSpikes(QWidget):
         self.duration = 0
         self.threshold_multiplier = 2.0
         self.spike_events = []
-        
+        # Timeframe tracking for Analysis Window
+        self.start_time = 0
+        self.end_time = 0        
         self.init_ui()
         
     def init_ui(self):
@@ -59,6 +61,8 @@ class BandSpikes(QWidget):
         self.analyzer = analyzer
         if analyzer and hasattr(analyzer, 'processor') and analyzer.processor:
             self.duration = analyzer.processor.get_duration()
+            # Initialize timeframe to full duration
+            self.end_time = self.duration
             self.plot_widget.getPlotItem().getViewBox().setLimits(xMax=self.duration)
             # Initial plot update
             self.update_plot()
@@ -80,6 +84,13 @@ class BandSpikes(QWidget):
         self.plot_widget.getPlotItem().getViewBox().setLimits(xMax=total_duration)
         self.update_cursor()
         self.update_plot()
+    def set_timeframe(self, start_time, end_time):
+        """Set analysis timeframe for X-axis range"""
+        print(f"🎯 BandSpikes: Setting timeframe to {start_time:.1f}s - {end_time:.1f}s")
+        self.start_time = start_time
+        self.end_time = end_time
+        self.update_plot()
+
         
     def set_threshold(self, value):
         """Set the threshold multiplier"""
@@ -180,8 +191,11 @@ class BandSpikes(QWidget):
             # Set plot ranges
             y_max = np.max(power_data) * 1.2 if np.max(power_data) > 0 else 100
             self.plot_widget.setYRange(0, y_max)
-            self.plot_widget.setXRange(0, self.duration if self.duration > 0 else 10)
-            
+            # Use timeframe if set, otherwise use full duration
+            if self.end_time > self.start_time:
+                self.plot_widget.setXRange(self.start_time, self.end_time, padding=0)
+            else:
+                self.plot_widget.setXRange(0, self.duration if self.duration > 0 else 10)            
         except Exception as e:
             print(f"Error updating spike plot: {e}")
             

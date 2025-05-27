@@ -400,12 +400,8 @@ class TabbedAnalysisPanel(QWidget):
         
         # Update Band Spikes tab
         if hasattr(self, 'band_spikes'):
-            # Convert to time window format for band spikes
-            duration = end_time - start_time
-            self.band_spikes.set_time_window(start_time, duration)
-            self.band_spikes.update_plot()
-            
-        # Update other analysis tabs
+            self.band_spikes.set_timeframe(start_time, end_time)
+            print(f"✅ TabbedPanel: Updated Band Spikes X-axis range to {start_time:.1f}s - {end_time:.1f}s")        # Update other analysis tabs
         if hasattr(self, 'all_bands_power'):
             self.all_bands_power.set_timeframe(start_time, end_time)
         if hasattr(self, 'dfa_analysis'):
