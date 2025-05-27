@@ -74,11 +74,13 @@ class BandSpikes(QWidget):
         
     def set_threshold(self, value):
         """Set the threshold multiplier"""
+        print(f"🎯 BandSpikes: Setting threshold to {value} (multiplier: {value/10.0})")
         self.threshold_multiplier = value / 10.0
         self.update_plot()
         
     def detect_spikes(self):
         """Detect spikes in the current band"""
+        print(f"🔥 BandSpikes: Starting spike detection with threshold multiplier: {self.threshold_multiplier}")
         if not self.analyzer:
             return
             

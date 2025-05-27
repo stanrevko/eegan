@@ -176,6 +176,8 @@ class TabbedAnalysisPanel(QWidget):
         
         # Band spikes widget
         self.band_spikes = BandSpikes()
+        # Set initial threshold from spinbox (will be created later)
+        # This will be synchronized in setup_connections()
         content_layout.addWidget(self.band_spikes)
         
         # Create sidebar
@@ -280,6 +282,12 @@ class TabbedAnalysisPanel(QWidget):
         # Connect tab change handler
         self.tab_widget.currentChanged.connect(self.on_tab_changed)
         # Connect threshold spinbox
+        # Initialize threshold value
+        if hasattr(self, 'threshold_spinbox') and hasattr(self, 'band_spikes'):
+            initial_threshold = self.threshold_spinbox.value()
+            self.band_spikes.set_threshold(initial_threshold)
+        
+        # Connect threshold spinbox
         if hasattr(self, 'threshold_spinbox'):
             self.threshold_spinbox.valueChanged.connect(self.on_threshold_changed)
         
@@ -294,18 +302,7 @@ class TabbedAnalysisPanel(QWidget):
         """Handle band changes for Band Spikes tab"""
         self.band_spikes.set_band(band_name)
         
-    def on_threshold_changed(self, value):
-        """Handle threshold changes"""
-        if isinstance(self.tab_widget.currentWidget(), BandSpikes):
-            self.band_spikes.set_threshold(value)
-            self.band_spikes.update_plot()  # Force plot update
             
-    def on_detect_spikes(self):
-        """Handle spike detection"""
-        if isinstance(self.tab_widget.currentWidget(), BandSpikes):
-            self.band_spikes.detect_spikes()
-            self.spike_count_label.setText(f"Spikes: {self.band_spikes.get_spike_count()}")
-            self.band_spikes.update_plot()  # Force plot update
         
     def set_analyzer(self, analyzer):
         """Set the EEG analyzer for all components"""
