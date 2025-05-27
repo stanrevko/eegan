@@ -330,7 +330,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
         
         # Main layout
-        main_layout = QHBoxLayout(central_widget)
+        main_layout = QVBoxLayout(central_widget)
         main_layout.setContentsMargins(5, 5, 5, 5)
         
         # Create main splitter
@@ -341,49 +341,76 @@ class MainWindow(QMainWindow):
         self.create_sidebar()
         self.create_analysis_area()
         
+        # Create bottom panel with timeline controls
+        self.create_bottom_panel()
+        main_layout.addWidget(self.bottom_panel)
+        
         # Setup splitter proportions
         self.main_splitter.setSizes([300, 1300])
         
         # No status bar at bottom anymore (moved to sidebar)
         
-    def create_toolbar(self):
-        """Create enhanced toolbar with timeline and timeframe controls"""
-        toolbar = self.addToolBar("Main")
-        toolbar.setMovable(False)
+    def create_bottom_panel(self):
+        """Create bottom panel with timeline and timeframe controls"""
+        self.bottom_panel = QWidget()
+        self.bottom_panel.setStyleSheet("""
+            QWidget {
+                background-color: #3c3c3c;
+                border-top: 1px solid #555555;
+                padding: 5px;
+            }
+        """)
         
-        # Sidebar toggle action
-        self.sidebar_action = QAction("📁 Hide Sidebar", self)
-        self.sidebar_action.setCheckable(True)
-        self.sidebar_action.setChecked(not self.sidebar_visible)
-        self.sidebar_action.triggered.connect(self.toggle_sidebar_action)
-        toolbar.addAction(self.sidebar_action)
+        bottom_layout = QHBoxLayout(self.bottom_panel)
+        bottom_layout.setContentsMargins(10, 5, 10, 5)
         
-        # Separator
-        toolbar.addSeparator()
-        
-        # File info action
-        self.file_info_action = QAction("📄 No file loaded", self)
-        self.file_info_action.setEnabled(False)
-        toolbar.addAction(self.file_info_action)
-        
-        # Separator
-        toolbar.addSeparator()
-        
-        # Timeline controls (moved to toolbar)
+        # Timeline controls
         self.timeline_controls = TimelineControls()
         self.timeline_controls.position_changed.connect(self.on_timeline_changed)
-        toolbar.addWidget(self.timeline_controls)
+        bottom_layout.addWidget(self.timeline_controls)
         
         # Separator
-        toolbar.addSeparator()
+        separator = QFrame()
+        separator.setFrameShape(QFrame.VLine)
+        separator.setStyleSheet("background-color: #555555;")
+        bottom_layout.addWidget(separator)
         
-        # Timeframe controls (new)
+        # Timeframe controls
         self.timeframe_controls = TimeframeControls()
         self.timeframe_controls.timeframe_changed.connect(self.on_timeframe_changed)
-        toolbar.addWidget(self.timeframe_controls)
+        bottom_layout.addWidget(self.timeframe_controls)
         
-        # Update sidebar toggle text
-        self.update_sidebar_action_text()
+        bottom_layout.addStretch()
+        
+        # Sidebar toggle button
+        self.sidebar_toggle_btn = QPushButton("📁 Hide Sidebar")
+        self.sidebar_toggle_btn.setCheckable(True)
+        self.sidebar_toggle_btn.setChecked(not self.sidebar_visible)
+        self.sidebar_toggle_btn.clicked.connect(self.toggle_sidebar)
+        self.sidebar_toggle_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4a4a4a;
+                border: 1px solid #666666;
+                color: #ffffff;
+                padding: 5px 10px;
+                border-radius: 3px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #555555;
+            }
+            QPushButton:checked {
+                background-color: #0078d4;
+                border-color: #0078d4;
+            }
+        """)
+        bottom_layout.addWidget(self.sidebar_toggle_btn)
+
+    def create_toolbar(self):
+        """Create minimal toolbar (reserved for future use)"""
+        toolbar = self.addToolBar("Main")
+        toolbar.setMovable(False)
+        toolbar.setVisible(False)  # Hide empty toolbar
         
     def create_sidebar(self):
         """Create enhanced sidebar with integrated status"""
@@ -427,6 +454,29 @@ class MainWindow(QMainWindow):
         refresh_shortcut = QShortcut(QKeySequence("F5"), self)
         refresh_shortcut.activated.connect(self.file_panel.file_panel.refresh_file_list)
         
+    def toggle_sidebar(self, checked):
+        """Toggle sidebar via bottom panel button"""
+        self.sidebar_visible = not checked
+        self.file_panel.setVisible(self.sidebar_visible)
+        self.settings.set('sidebar_visible', self.sidebar_visible)
+        
+        # Update splitter sizes
+        if self.sidebar_visible:
+            self.main_splitter.setSizes([300, 1300])
+        else:
+            self.main_splitter.setSizes([0, 1600])
+            
+        # Update button text
+        self.update_sidebar_button_text()
+
+    def update_sidebar_button_text(self):
+        """Update the sidebar button text"""
+        if hasattr(self, 'sidebar_toggle_btn'):
+            if self.sidebar_visible:
+                self.sidebar_toggle_btn.setText("📁 Hide Sidebar")
+            else:
+                self.sidebar_toggle_btn.setText("📁 Show Sidebar")
+
     def toggle_sidebar_action(self, checked):
         """Toggle sidebar via toolbar action"""
         self.sidebar_visible = not checked
@@ -439,19 +489,15 @@ class MainWindow(QMainWindow):
         else:
             self.main_splitter.setSizes([0, 1600])
             
-        self.update_sidebar_action_text()
+        # Sidebar action text update removed
         
     def toggle_sidebar_shortcut(self):
         """Toggle sidebar via keyboard shortcut"""
-        self.sidebar_action.setChecked(not self.sidebar_action.isChecked())
-        self.toggle_sidebar_action(self.sidebar_action.isChecked())
+        if hasattr(self, 'sidebar_toggle_btn'):
+            self.sidebar_toggle_btn.setChecked(not self.sidebar_toggle_btn.isChecked())
+            self.toggle_sidebar(self.sidebar_toggle_btn.isChecked())
         
-    def update_sidebar_action_text(self):
-        """Update the sidebar action text"""
-        if self.sidebar_visible:
-            self.sidebar_action.setText("📁 Hide Sidebar")
-        else:
-            self.sidebar_action.setText("📁 Show Sidebar")
+
             
     def auto_load_file(self, file_path):
         """Auto-load selected file"""
@@ -462,7 +508,7 @@ class MainWindow(QMainWindow):
         file_name = os.path.basename(file_path)
         
         # Update toolbar
-        self.file_info_action.setText(f"🔄 Loading: {file_name}")
+        # File info removed from UI
         
         # Show progress in sidebar
         self.file_panel.show_progress(True)
@@ -491,7 +537,7 @@ class MainWindow(QMainWindow):
             
             # Update toolbar
             file_info = self.loader.get_file_info()
-            self.file_info_action.setText(f"📄 {file_info['filename']} ({file_info['duration']:.1f}s)")
+            # File info removed from UI
             
             # Update timeline and timeframe controls
             duration = self.processor.get_duration()
@@ -503,7 +549,7 @@ class MainWindow(QMainWindow):
             
             self.file_panel.update_status(message)
         else:
-            self.file_info_action.setText("📄 No file loaded")
+            # File info removed from UI
             self.file_panel.update_status(message)
             
     def update_all_panels(self):
@@ -514,7 +560,9 @@ class MainWindow(QMainWindow):
         try:
             
             # Update analysis panel
+            print(f"🔄 Main Window: Setting analyzer for analysis panel...")
             self.analysis_panel.set_analyzer(self.analyzer)
+            print(f"✅ Main Window: Analysis panel updated with analyzer")
             
             # Set initial channel to first channel
             initial_channel = 0
