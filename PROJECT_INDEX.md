@@ -36,19 +36,18 @@
 ### Main Windows
 | File | Purpose | When to Modify |
 |------|---------|----------------|
-| `gui/main_window.py` | **Main Application Window** - Simplified layout with unified tabbed analysis interface | Change overall layout, modify window behavior |
+| `gui/main_window.py` | **Main Application Window** - Simplified layout with unified tabbed analysis interface and **Analysis Window controls** | Change overall layout, modify Analysis Window timeframe controls |
 | `gui/main_window_simple.py` | **Simplified Main Window** - Alternative simpler interface | Update simple interface variant |
 
 ### Analysis Interface (`gui/analysis/`) - **Primary Analysis Hub**
 | File | Purpose | When to Modify |
 |------|---------|----------------|
-| `gui/analysis/tabbed_analysis_panel.py` | **Main Analysis Interface** - Clean tabbed analysis container with 5 analysis tools and individual tab selectors | Add new tabs, modify tab behavior, change layout |
-| `gui/analysis/band_selector.py` | **Band Selection Widget** - Frequency band dropdown (now used per-tab) | Add new bands, change band colors, modify selection UI |
-| `gui/analysis/channel_selector.py` | **Channel Selection Widget** - EEG channel dropdown (now used per-tab) | Add channel features, modify channel display |
-| `gui/analysis/power_plot.py` | **Band Power Visualization** - Single band power plotting with integrated controls | Improve power plot features, add plot options |
-| `gui/analysis/band_spikes.py` | **Spike Detection Tool** - Spike analysis with integrated controls | Modify spike detection algorithm, change threshold logic |
+| `gui/analysis/tabbed_analysis_panel.py` | **Main Analysis Interface** - Clean tabbed analysis container with 4 analysis tools and **timeframe synchronization** | Add new tabs, modify tab behavior, change timeframe handling |
+| `gui/analysis/band_selector.py` | **Band Selection Widget** - Frequency band dropdown (used per-tab) | Add new bands, change band colors, modify selection UI |
+| `gui/analysis/channel_selector.py` | **Channel Selection Widget** - EEG channel dropdown (used per-tab) | Add channel features, modify channel display |
+| `gui/analysis/eeg_timeline_analysis.py` | **EEG Timeline Tab** - 📺 **PRIMARY** Full EEG signal visualization (First Tab) with **Analysis Window X-axis control** | Modify signal display, add timeline features, change timeframe handling |
+| `gui/analysis/band_spikes.py` | **Band Spikes Analysis** - Statistical spike detection with integrated controls and **Analysis Window X-axis control** | Modify spike detection algorithm, change threshold logic, add statistical features |
 | `gui/analysis/all_bands_power.py` | **Multi-Band Comparison** - All bands comparative plot | Add band comparison features, modify normalization |
-| `gui/analysis/eeg_timeline_analysis.py` | **EEG Timeline Tab** - 📺 **PRIMARY** Full EEG signal visualization (First Tab) | Modify signal display, add timeline features, change channel visibility |
 | `gui/analysis/dfa_analysis.py` | **DFA Analysis Tab** - Detrended fluctuation analysis | Add new DFA features, modify analysis parameters |
 | `gui/analysis/analysis_controls.py` | **Analysis Parameters** - Window size, step size controls (integrated into Band Power tab) | Add new analysis parameters, modify control ranges |
 | `gui/analysis/__init__.py` | **Analysis UI Module** - Exports all analysis UI components | Add new analysis UI classes |
@@ -103,158 +102,4 @@
 
 | File | Purpose | When to Modify |
 |------|---------|----------------|
-| `test_tabbed_analysis.py` | **Tabbed Panel Test** - Test script for tabbed analysis interface | Test new tab features, debug tab issues |
-| `test_eeg_timeline_integration.py` | **EEG Timeline Integration Test** - Test script for timeline tab integration | Test timeline tab functionality, debug integration issues |
-| `test_analyzer.py` | **Analysis Test** - Test script for analysis algorithms | Test analysis improvements, debug analysis issues |
-| `test_gui.py` | **GUI Test** - Test script for GUI components | Test GUI changes, debug UI issues |
-| `test_modular.py` | **Modular Test** - Test script for modular components | Test modular architecture, debug component issues |
-| `test_processor.py` | **Processor Test** - Test script for EEG processing | Test processing improvements, debug processing issues |
-
-## 📊 Data Directory (`eeg_data/`)
-
-| Purpose | When to Modify |
-|---------|----------------|
-| **Sample EEG Data** - Contains example EEG files for testing | Add new sample data, update test datasets |
-
-## 🔧 Configuration Files
-
-| File | Purpose | When to Modify |
-|------|---------|----------------|
-| `eeg_settings.json` | **Application Configuration** - Runtime settings and preferences | Change default settings, add new configuration options |
-| `.gitignore` | **Git Exclusions** - Files to ignore in version control | Add new file types to ignore |
-
----
-
-## 🎯 Quick Reference by Functionality
-
-### 🔍 **Need to modify analysis algorithms?**
-- `eeg/analysis/power_analyzer.py` - Core analysis logic
-- `gui/analysis/band_spikes.py` - Spike detection algorithm
-- `eeg/filters/bandpass_filter.py` - Signal filtering
-
-### 🎨 **Need to change UI appearance?**
-- `utils/ui_helpers.py` - Styling and theming
-- `gui/analysis/tabbed_analysis_panel.py` - Main clean tabbed analysis interface
-- `gui/main_window.py` - Overall simplified window layout
-
-### ⚡ **Need to add new analysis features?**
-- `gui/analysis/` - Add new analysis tab or component
-- `eeg/analysis/` - Add new analysis algorithm
-- `gui/analysis/tabbed_analysis_panel.py` - Integrate new tab into clean interface
-
-### 📊 **Need to modify plotting?**
-- `gui/analysis/eeg_timeline_analysis.py` - **PRIMARY** EEG signal display and timeline (First Tab)
-- `gui/analysis/power_plot.py` - Power analysis plots (with integrated controls)
-- `gui/analysis/all_bands_power.py` - Multi-band plots
-
-### 🔧 **Need to fix data loading issues?**
-- `eeg/processor.py` - Core data processing
-- `gui/threading/eeg_load_thread.py` - Background loading
-- `gui/file_panel.py` - File browser
-
-### 🎛️ **Need to add new controls?**
-- `gui/controls/` - Control components
-- Individual tabs now have integrated selectors (Band Power, Band Spikes)
-- `gui/analysis/eeg_timeline_analysis.py` - Timeline navigation and display controls
-
-### 🔊 **Need to add new frequency bands?**
-- `eeg/frequency_bands.py` - Band definitions
-- `gui/analysis/band_selector.py` - Band selection UI (used per-tab)
-- `gui/analysis/all_bands_power.py` - Multi-band display
-
-### 🧵 **Need to fix threading issues?**
-- `gui/threading/thread_manager.py` - Thread coordination
-- `gui/threading/eeg_load_thread.py` - EEG loading thread
-
-### ⚙️ **Need to modify application settings?**
-- `utils/settings.py` - Settings management
-- `eeg_settings.json` - Configuration file
-- `gui/main_window.py` - Settings integration
-
-### 📺 **Need to modify EEG signal display?**
-- `gui/analysis/eeg_timeline_analysis.py` - **PRIMARY** location for all EEG timeline functionality (First Tab)
-- Timeline controls, channel visibility, Y-scale, time navigation
-- Signal plotting and interaction
-
-### 🎛️ **Need to modify individual tab controls?**
-- `gui/analysis/power_plot.py` - Band Power tab with integrated Channel/Band selectors
-- `gui/analysis/band_spikes.py` - Band Spikes tab with integrated Channel/Band selectors
-- Each tab now has independent controls instead of global selectors
-
----
-
-## 🆕 **Recent Architecture Changes**
-
-### ✨ **Sprint 4 - Clean Tabbed Interface (Latest)**
-
-**What Changed:**
-- **Moved** EEG Timeline to **first tab position** (primary tab)
-- **Relocated** Channel and Band selectors from global header to individual tabs
-- **Removed** unnecessary tab borders for cleaner appearance
-- **Added** independent selectors to Band Power and Band Spikes tabs
-- **Maintained** signal compatibility with main window through relay connections
-
-### 📋 **Current Tab Structure (5 Tabs)**
-
-1. **📺 EEG Timeline** - **FIRST TAB** Full signal display with timeline controls
-2. **📊 Band Power** - Individual frequency band analysis **with integrated Channel/Band selectors**
-3. **⚡ Band Spikes** - Spike detection **with integrated Channel/Band selectors**
-4. **📈 All Bands** - Multi-band comparative visualization  
-5. **📊 DFA Analysis** - Detrended fluctuation analysis
-
-### 🔄 **Migration Notes (Sprint 4)**
-
-- **REMOVED**: Global Channel/Band selectors from main tabbed panel header
-- **ADDED**: Individual selectors per tab (Band Power, Band Spikes)
-- **IMPROVED**: Cleaner interface without unnecessary borders
-- **MAINTAINED**: All signal connections through relay system
-- **BENEFITS**: Independent tab controls, cleaner UI, better user experience
-
-### ✨ **Sprint 3 - Major UI Enhancements**
-
-**What Changed:**
-- **Moved** timeline controls from top to bottom bar
-- **Enhanced** EEG Timeline with full controls integration
-- **Added** "Select All" and "None" buttons for channel visibility
-- **Updated** Y-scale default to 50mV, spacing to 1x
-- **Improved** display controls layout (vertical under channel visibility)
-
----
-
-## 📝 File Naming Conventions
-
-- **snake_case** for all Python files
-- **PascalCase** for class names within files
-- **Descriptive names** indicating functionality
-- **Module `__init__.py`** files for package exports
-- **Test files** prefixed with `test_`
-
-## 🔄 Common Update Patterns
-
-1. **Adding new analysis tab**: Modify `gui/analysis/tabbed_analysis_panel.py`
-2. **Adding individual tab controls**: Update specific tab files (power_plot.py, band_spikes.py)
-3. **Adding new frequency band**: Update `eeg/frequency_bands.py` and `gui/analysis/band_selector.py`
-4. **Improving algorithms**: Update relevant files in `eeg/analysis/`
-5. **UI improvements**: Update files in `gui/analysis/` (primary location)
-6. **EEG display changes**: Modify `gui/analysis/eeg_timeline_analysis.py` (First Tab)
-7. **New features**: Often requires updates to multiple related files
-
-## 🏗️ **Current Architecture Summary**
-
-```
-Main Window (Simplified)
-├── File Panel (Sidebar)
-└── Analysis Area (Full)
-    └── Clean Tabbed Analysis Panel (5 Tabs - No Borders)
-        ├── 📺 EEG Timeline (PRIMARY - First Tab)
-        ├── 📊 Band Power (+ Channel/Band Selectors)
-        ├── ⚡ Band Spikes (+ Channel/Band Selectors)
-        ├── 📈 All Bands
-        └── 📊 DFA Analysis
-```
-
-This index should help you quickly locate the right files for any modifications! 🎯
-
----
-
-**Last Updated**: January 2025 - **Version 2.2** (Sprint 4 - Clean Tabbed Interface)
+| `tests/test_tabbed_analysis.

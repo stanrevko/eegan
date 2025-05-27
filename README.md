@@ -9,11 +9,11 @@ A comprehensive Python-based application for electroencephalogram (EEG) data ana
 - **Real-time Visualization**: Interactive EEG timeline with channel controls
 - **Power Spectral Analysis**: Sliding window power calculations
 - **Advanced Filtering**: Butterworth bandpass filters for each frequency band
+- **Statistical Spike Detection**: Configurable threshold using standard deviations (σ)
 
 ### 🎛️ Clean Tabbed Analysis Interface
 - **📺 EEG Timeline**: PRIMARY tab with full signal visualization and timeline controls
-- **📊 Band Power**: Enhanced single-band power analysis with integrated channel/band selectors
-- **⚡ Band Spikes**: Spike detection with configurable thresholds and integrated controls
+- **⚡ Band Spikes**: Enhanced spike detection with statistical thresholds and integrated channel/band selectors
 - **📈 All Bands**: Comparative visualization of all frequency bands simultaneously
 - **📊 DFA Analysis**: Detrended fluctuation analysis
 
@@ -22,13 +22,20 @@ A comprehensive Python-based application for electroencephalogram (EEG) data ana
 - **Clean Design**: Borderless tabs and streamlined controls for maximum space efficiency
 - **Interactive Controls**: Channel visibility toggles, Y-axis scaling, timeline navigation
 - **File Browser**: Automatic EEG data loading with folder management
+- **Analysis Window Control**: Bottom bar timeframe controls that set timeline X-axis range
 - **Individual Tab Controls**: Channel and band selectors integrated directly into relevant tabs
 
 ### 📈 Visualization Features
-- **Timeline View**: Scrollable EEG signal display with time markers
+- **Timeline View**: Scrollable EEG signal display with time markers and zoom controls
 - **Spectrum Analysis**: Real-time frequency domain visualization
 - **Power Plots**: Time-series power analysis for each frequency band
 - **Multi-Channel Support**: Independent channel analysis and comparison
+- **Statistical Thresholds**: Visual threshold lines showing spike detection sensitivity
+
+### 🍎 Platform Support
+- **macOS App Bundle**: Double-click launcher with Dock integration
+- **Cross-Platform**: Runs on Windows, macOS, and Linux
+- **Command Line**: Traditional python execution available
 
 ## 🚀 Quick Start
 
@@ -51,6 +58,17 @@ pip install -r requirements.txt
 ```
 
 ### Running the Application
+
+#### Option 1: macOS App Bundle (Recommended for macOS)
+```bash
+# Create the macOS application
+./create_app.sh
+
+# Drag "EEG Analysis.app" to your Dock or Applications folder
+# Double-click to launch
+```
+
+#### Option 2: Command Line
 ```bash
 # Activate virtual environment
 source venv/bin/activate
@@ -59,10 +77,19 @@ source venv/bin/activate
 python main.py
 ```
 
+#### Option 3: Quick Launch Script
+```bash
+# Make executable (first time only)
+chmod +x run.sh
+
+# Launch application
+./run.sh
+```
+
 ## 📋 Usage Guide
 
 ### Getting Started
-1. **Launch Application**: Run `python main.py` to open the main interface
+1. **Launch Application**: Use any of the launch methods above
 2. **Load Data**: Use the file browser to navigate to your EEG data directory
 3. **Select File**: Click on any EEG file to load it automatically
 4. **Analyze**: Switch between analysis tabs to explore different perspectives
@@ -75,27 +102,25 @@ python main.py
 - Adjust channel visibility using "Select All" and "None" buttons
 - Control Y-scale (default: 50mV) and spacing (default: 1x)
 - Navigate through time using integrated timeline controls
-
-#### 📊 Band Power Tab
-- **Integrated Controls**: Channel and Band selectors built into the tab
-- Select frequency band using the dropdown selector
-- Choose channel for analysis from the channel dropdown
-- Adjust analysis window and step size with controls
-- View real-time power calculations over time
-- Set custom timeframes for focused analysis
+- **X-axis controlled by Analysis Window** in bottom bar
 
 #### ⚡ Band Spikes Tab
-- **Integrated Controls**: Channel and Band selectors built into the tab
-- Choose frequency band and channel for spike analysis
-- Adjust detection threshold (1.0x - 5.0x standard deviation)
-- Click "Detect Spikes" to identify and mark spike events
-- View spike count and timestamps in console
+- **Statistical Spike Detection**: Uses standard deviations (σ) for scientifically accurate thresholds
+- **Integrated Controls**: Channel and Band selectors built into the collapsible sidebar
+- **Threshold Configuration**: 1.0σ to 5.0σ range with helpful tooltips
+  - **1.0σ**: Very sensitive (detects ~32% of variations)
+  - **2.0σ**: Moderate sensitivity (default, detects ~2.5% of extremes)
+  - **3.0σ**: Conservative (detects ~0.15% of extremes)
+- **Visual Feedback**: Orange threshold line and red spike markers
+- **Real-time Updates**: Threshold line updates as you adjust sensitivity
+- **Spike Count Display**: Shows number of detected spikes in sidebar
+- **X-axis controlled by Analysis Window** in bottom bar
 
 #### 📈 All Bands Tab
 - Toggle individual frequency bands using checkboxes
 - Compare normalized power levels across all bands
 - Identify dominant frequency patterns
-- Analyze relative band activity
+- Analyze relative band activity across selected timeframe
 
 #### 📊 DFA Analysis Tab
 - Perform detrended fluctuation analysis
@@ -103,7 +128,36 @@ python main.py
 - Visualize scaling relationships
 
 ### Interface Features
-- **Clean Tab Design**: No unnecessary borders for maximum space efficiency
+
+#### 🎯 Analysis Window Control (Bottom Bar)
+- **Timeframe Selection**: Set start and end times for focused analysis
+- **X-axis Control**: Controls timeline range for both EEG Timeline and Band Spikes tabs
+- **Full Range Reset**: Quickly return to complete recording view
+- **Helpful Tooltips**: Clear guidance on what each control does
+- **Real-time Updates**: All analysis tabs synchronize with selected timeframe
+
+### 🔬 Advanced Features
+
+#### Statistical Spike Detection
+- **Scientific Accuracy**: Uses standard deviations (σ) instead of arbitrary multipliers
+- **Configurable Sensitivity**: 1.0σ (very sensitive) to 5.0σ (very conservative)
+- **Statistical Context**: 
+  - 2.0σ threshold catches ~2.5% of extreme power values
+  - 3.0σ threshold catches ~0.15% of extreme power values
+- **Visual Feedback**: Orange threshold line and red spike markers
+- **Real-time Analysis**: Threshold updates as you adjust sensitivity
+
+#### Timeline Navigation and Control
+- **Analysis Window Sync**: Bottom bar timeframe controls set X-axis range for:
+  - 📺 EEG Timeline tab (primary signal visualization)
+  - ⚡ Band Spikes tab (spike detection plots)
+  - 📈 All Bands tab (multi-band comparison)
+  - 📊 DFA Analysis tab (detrended fluctuation analysis)
+- **Focused Analysis**: Zoom into specific time periods of interest
+- **Performance Optimization**: Analyze smaller segments for faster processing
+- **Spike Investigation**: Narrow timeframe around detected events
+
+#### Clean Tab Design
 - **Independent Tab Controls**: Each analysis tab has its own relevant selectors
 - **Responsive Layout**: Resizable panels with optimized space allocation
 - **Dark Theme**: Professional appearance optimized for extended use
@@ -118,10 +172,9 @@ eegan/
 │   ├── analysis/          # Analysis panel components
 │   │   ├── tabbed_analysis_panel.py  # Main clean tabbed interface
 │   │   ├── eeg_timeline_analysis.py  # EEG Timeline (Primary Tab)
-│   │   ├── power_plot.py            # Band Power (+ selectors)
-│   │   ├── band_spikes.py           # Band Spikes (+ selectors)
-│   │   ├── all_bands_power.py       # Multi-band comparison
-│   │   └── dfa_analysis.py          # DFA Analysis
+│   │   ├── band_spikes.py            # Band Spikes (+ selectors)
+│   │   ├── all_bands_power.py        # Multi-band comparison
+│   │   └── dfa_analysis.py           # DFA Analysis
 │   ├── plots/             # Visualization widgets
 │   ├── controls/          # UI control components
 │   └── main_window.py     # Main application window
@@ -152,7 +205,7 @@ eegan/
 ### Analysis Methods
 - **Sliding Window Analysis**: Configurable window sizes (1-10 seconds)
 - **Power Spectral Density**: Welch's method for power calculation
-- **Spike Detection**: Statistical threshold-based detection (mean + n×std)
+- **Statistical Spike Detection**: Standard deviation threshold-based detection
 - **Real-time Processing**: Efficient algorithms for live data analysis
 
 ### Signal Processing
@@ -215,6 +268,16 @@ python test_gui.py
 
 ## 🔄 Recent Updates
 
+### Version 2.3 - Analysis Window Control & Statistical Improvements (Latest)
+- **NEW**: Analysis Window (bottom bar) now controls X-axis range for all analysis tabs
+- **NEW**: Scientific statistical spike detection using standard deviations (σ)
+- **NEW**: macOS application bundle with Dock integration
+- **IMPROVED**: Band Selector functionality in Band Spikes tab now working
+- **IMPROVED**: Clear threshold UI showing "2.0σ" instead of confusing "20x"
+- **ENHANCED**: Helpful tooltips explaining sensitivity and statistical meaning
+- **FIXED**: All AttributeError crashes and method connection issues
+- **FIXED**: Timeline synchronization across all analysis tabs
+
 ### Version 2.2 - Clean Tabbed Interface (Sprint 4)
 - **NEW**: EEG Timeline moved to first tab position for primary access
 - **NEW**: Channel and Band selectors integrated directly into relevant tabs
@@ -231,8 +294,8 @@ python test_gui.py
 - **ENHANCED**: EEG Timeline integration and functionality
 
 ### Version 2.0 - Tabbed Analysis Panel
-- **NEW**: Five-tab analysis interface
-- **NEW**: Spike detection with configurable thresholds
+- **NEW**: Four-tab analysis interface (EEG Timeline, Band Spikes, All Bands, DFA)
+- **NEW**: Spike detection with statistical thresholds
 - **NEW**: Multi-band comparative visualization
 - **ENHANCED**: Original band power analysis
 - **FIXED**: Recursion errors and signal handling
@@ -269,4 +332,4 @@ For questions, issues, or feature requests:
 
 *Built with ❤️ for the neuroscience and EEG analysis community*
 
-**Current Version**: 2.2 (Sprint 4 - Clean Tabbed Interface)
+**Current Version**: 2.3 (Analysis Window Control & Statistical Improvements)
