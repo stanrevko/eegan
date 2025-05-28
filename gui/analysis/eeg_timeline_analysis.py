@@ -7,7 +7,7 @@ import numpy as np
 import pyqtgraph as pg
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                              QSpinBox, QPushButton, QCheckBox, QGroupBox,
-                             QScrollArea, QFrame)
+                             QScrollArea, QFrame, QDoubleSpinBox)
 from PyQt5.QtCore import pyqtSignal, Qt
 from utils.ui_helpers import setup_dark_plot
 
@@ -26,11 +26,12 @@ class EEGTimelineAnalysis(QWidget):
         self.current_time = 0
         self.duration = 0
         self.y_scale = 50  # microvolts - changed from 200 to 50
-        self.spacing = 1   # spacing multiplier - changed from 3 to 1
+        self.spacing = 2.5   # spacing multiplier - changed from 1 to 2.5
         self.visible_channels = {}
         self.channel_names = []
         self.start_time = 0
         self.end_time = 0
+        self.controls_visible = True  # Track controls visibility
         
         self.init_ui()
         
@@ -46,9 +47,32 @@ class EEGTimelineAnalysis(QWidget):
         main_layout.addWidget(self.plot_widget, stretch=1)
         
         # Right panel for controls
-        controls_panel = QWidget()
-        controls_panel.setFixedWidth(250)
-        controls_layout = QVBoxLayout(controls_panel)
+        self.controls_panel = QWidget()
+        self.controls_panel.setFixedWidth(250)
+        controls_layout = QVBoxLayout(self.controls_panel)
+        
+        # Toggle controls button
+        self.toggle_controls_btn = QPushButton("◀")
+        self.toggle_controls_btn.setFixedSize(20, 20)
+        self.toggle_controls_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4a4a4a;
+                border: 1px solid #666666;
+                color: #ffffff;
+                border-radius: 3px;
+                font-size: 10px;
+            }
+            QPushButton:hover {
+                background-color: #555555;
+            }
+            QPushButton:pressed {
+                background-color: #333333;
+            }
+        """)
+        self.toggle_controls_btn.clicked.connect(self.toggle_controls)
+        
+        # Add toggle button to main layout
+        main_layout.addWidget(self.toggle_controls_btn)
         
         # Channel Visibility Group
         channels_group = QGroupBox("Channel Visibility")
@@ -180,13 +204,14 @@ class EEGTimelineAnalysis(QWidget):
         # Spacing control
         spacing_layout = QHBoxLayout()
         spacing_layout.addWidget(QLabel("Spacing:"))
-        self.spacing_spinbox = QSpinBox()
-        self.spacing_spinbox.setRange(1, 5)
+        self.spacing_spinbox = QDoubleSpinBox()  # Changed to QDoubleSpinBox
+        self.spacing_spinbox.setRange(0.1, 5.0)  # Allow decimal values
+        self.spacing_spinbox.setSingleStep(0.1)  # Step by 0.1
         self.spacing_spinbox.setValue(self.spacing)
         self.spacing_spinbox.setSuffix("x")
         self.spacing_spinbox.valueChanged.connect(self.on_spacing_changed)
         self.spacing_spinbox.setStyleSheet("""
-            QSpinBox {
+            QDoubleSpinBox {
                 background-color: #3c3c3c;
                 border: 1px solid #555555;
                 color: #ffffff;
@@ -202,7 +227,7 @@ class EEGTimelineAnalysis(QWidget):
         controls_layout.addStretch()
         
         # Add controls panel to main layout (now on the right)
-        main_layout.addWidget(controls_panel)
+        main_layout.addWidget(self.controls_panel)
         
         # Add time line
         self.time_line = pg.InfiniteLine(angle=90, movable=True)
@@ -336,7 +361,7 @@ class EEGTimelineAnalysis(QWidget):
             clean_name = name.replace("EEG ", "") if name.startswith("EEG ") else name
             
             checkbox = QCheckBox(f"{i+1}: {clean_name}")
-            checkbox.setChecked(i < 10)  # Show first 10 channels by default
+            checkbox.setChecked(False)  # No channels visible by default
             checkbox.stateChanged.connect(
                 lambda state, idx=i: self.on_channel_visibility_changed(idx, state)
             )
@@ -364,7 +389,7 @@ class EEGTimelineAnalysis(QWidget):
                 }}
             """)
             
-            self.visible_channels[i] = i < 10
+            self.visible_channels[i] = False  # No channels visible by default
             self.channels_layout.addWidget(checkbox)
             
         self.channels_layout.addStretch()
@@ -456,3 +481,9 @@ class EEGTimelineAnalysis(QWidget):
         # Re-add time line
         self.time_line = pg.InfiniteLine(pos=0, angle=90, pen=pg.mkPen(color="#00ff00", width=2, style=2))
         self.plot_widget.addItem(self.time_line)
+
+    def toggle_controls(self):
+        """Toggle visibility of controls panel"""
+        self.controls_visible = not self.controls_visible
+        self.controls_panel.setVisible(self.controls_visible)
+        self.toggle_controls_btn.setText("▶" if not self.controls_visible else "◀")
