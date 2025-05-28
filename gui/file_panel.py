@@ -139,7 +139,7 @@ class FilePanel(QWidget):
         """Open folder browser dialog"""
         folder = QFileDialog.getExistingDirectory(
             self, 
-            "Select EEG Data Folder", 
+            "Select EEG Data Folder (EDF or TXT)", 
             self.current_folder
         )
         
@@ -184,14 +184,16 @@ class FilePanel(QWidget):
             
         try:
             files = [f for f in os.listdir(self.current_folder) 
-                    if f.lower().endswith('.edf')]
+                    if f.lower().endswith(('.edf', '.txt'))]
             
             if not files:
-                self.file_list.addItem("❌ No EDF files found")
+                self.file_list.addItem("❌ No EEG files found (EDF or TXT)")
                 return
                 
             for file in sorted(files):
-                item = QListWidgetItem(f"📄 {file}")
+                # Determine file icon based on extension
+                file_icon = "📊" if file.lower().endswith(".txt") else "📄"
+                item = QListWidgetItem(f"{file_icon} {file}")
                 item.setData(Qt.UserRole, os.path.join(self.current_folder, file))
                 
                 # Add file size info
@@ -204,7 +206,7 @@ class FilePanel(QWidget):
                     
                 self.file_list.addItem(item)
                 
-            self.file_info_label.setText(f"Found {len(files)} EDF files - Click any to auto-load")
+            self.file_info_label.setText(f"Found {len(files)} EEG files (EDF/TXT) - Click any to auto-load")
             
         except Exception as e:
             self.file_list.addItem(f"❌ Error reading folder: {str(e)}")

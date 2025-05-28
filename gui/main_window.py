@@ -160,7 +160,7 @@ class EEGLoadThread(QThread):
             self.progress.emit("🔄 Loading EEG file...")
             loader = EEGLoader()
             
-            if loader.load_edf(self.file_path):
+            if loader.load_file(self.file_path):
                 self.progress.emit("🔧 Applying 0.1-40Hz filter...")
                 processor = EEGProcessor()
                 processor.set_raw_data(loader.raw)

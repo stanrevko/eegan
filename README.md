@@ -4,6 +4,14 @@ A comprehensive Python-based application for electroencephalogram (EEG) data ana
 
 ## ✨ Features
 
+### 📊 Supported File Formats
+- **📄 EDF Files (.edf)**: Industry-standard European Data Format
+- **📊 TXT Files (.txt)**: Tab-separated format with time column + EEG channels
+  - First column: time in hh:mm:ss.mmm format
+  - Remaining columns: EEG channel data (supports 1-21+ channels)
+  - Header row required with channel names
+  - Example: `hh:mm:ss.mmm	Fp1	Fp2	F3`
+
 ### 📊 Core Analysis Tools
 - **Multi-Band Analysis**: Alpha, Beta, Theta, Delta, and Gamma frequency bands
 - **Real-time Visualization**: Interactive EEG timeline with channel controls
