@@ -267,8 +267,47 @@ class TabbedAnalysisPanel(QWidget):
         
     def create_all_bands_tab(self):
         """Create the All Band Powers comparison tab"""
+        tab_widget = QWidget()
+        tab_layout = QHBoxLayout(tab_widget)
+        tab_layout.setContentsMargins(0, 0, 0, 0)
+        tab_layout.setSpacing(0)
+        
+        # Main content area
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(5, 5, 5, 5)
+        
+        # All bands power widget
         self.all_bands_power = AllBandsPower()
-        self.tab_widget.addTab(self.all_bands_power, "📈 All Bands")
+        content_layout.addWidget(self.all_bands_power)
+        
+        # Create sidebar
+        self.all_bands_sidebar = CollapsibleSidebar()
+        sidebar_layout = QVBoxLayout()
+        sidebar_layout.setContentsMargins(5, 5, 5, 5)
+        sidebar_layout.setSpacing(10)
+        
+        # Controls header for All Bands tab
+        controls_layout = QVBoxLayout()
+        controls_layout.setSpacing(10)
+        
+        # Channel selector for All Bands
+        from gui.analysis import ChannelSelector
+        self.all_bands_channel_selector = ChannelSelector()
+        controls_layout.addWidget(self.all_bands_channel_selector)
+        
+        # Add band visibility controls
+        band_controls = self.all_bands_power.create_band_controls()
+        controls_layout.addWidget(band_controls)
+        
+        controls_layout.addStretch()
+        self.all_bands_sidebar.set_content_layout(controls_layout)
+        
+        # Add widgets to tab layout
+        tab_layout.addWidget(content_widget, stretch=1)
+        tab_layout.addWidget(self.all_bands_sidebar)
+        
+        self.tab_widget.addTab(tab_widget, "📈 All Bands")
         
     def create_dfa_tab(self):
         """Create the DFA analysis tab"""
@@ -284,6 +323,10 @@ class TabbedAnalysisPanel(QWidget):
             self.spikes_band_selector.band_changed.connect(self.on_spikes_band_changed)
             # Also relay from spikes band selector (when user switches to spikes tab)
             self.spikes_band_selector.band_changed.connect(self.band_changed.emit)
+            
+        # All Bands tab connections
+        if hasattr(self, 'all_bands_channel_selector'):
+            self.all_bands_channel_selector.channel_changed.connect(self.on_all_bands_channel_changed)
         
         # Connect tab change handler
         self.tab_widget.currentChanged.connect(self.on_tab_changed)
@@ -329,6 +372,10 @@ class TabbedAnalysisPanel(QWidget):
             self.spike_count_label.setText(f"Spikes: {self.band_spikes.get_spike_count()}")
             self.band_spikes.update_plot()  # Force plot update
             
+    def on_all_bands_channel_changed(self, channel_idx):
+        """Handle channel changes for All Bands tab"""
+        self.all_bands_power.set_channel(channel_idx)
+        
     def set_analyzer(self, analyzer):
         """Set the EEG analyzer for all components"""
         print(f"🔄 Tabbed Analysis Panel: Setting analyzer for all tabs...")
@@ -345,20 +392,28 @@ class TabbedAnalysisPanel(QWidget):
             channel_names = analyzer.processor.get_channel_names()
             if hasattr(self, 'spikes_channel_selector'):
                 self.spikes_channel_selector.set_channels(channel_names)
+            if hasattr(self, 'all_bands_channel_selector'):
+                self.all_bands_channel_selector.set_channels(channel_names)
             # Set initial channel
             if len(channel_names) > 0:
                 if hasattr(self, 'spikes_channel_selector'):
                     self.spikes_channel_selector.set_current_channel(0)
+                if hasattr(self, 'all_bands_channel_selector'):
+                    self.all_bands_channel_selector.set_current_channel(0)
                 self.current_channel = 0
         elif analyzer and hasattr(analyzer, "raw") and analyzer.raw:
             # Fallback to direct raw access
             channel_names = analyzer.raw.ch_names
             if hasattr(self, 'spikes_channel_selector'):
                 self.spikes_channel_selector.set_channels(channel_names)
+            if hasattr(self, 'all_bands_channel_selector'):
+                self.all_bands_channel_selector.set_channels(channel_names)
             # Set initial channel
             if len(channel_names) > 0:
                 if hasattr(self, 'spikes_channel_selector'):
                     self.spikes_channel_selector.set_current_channel(0)
+                if hasattr(self, 'all_bands_channel_selector'):
+                    self.all_bands_channel_selector.set_current_channel(0)
                 self.current_channel = 0
         
     def set_channel(self, channel_idx):
@@ -367,6 +422,8 @@ class TabbedAnalysisPanel(QWidget):
         # Update channel selectors display
         if hasattr(self, 'spikes_channel_selector'):
             self.spikes_channel_selector.set_current_channel(channel_idx)
+        if hasattr(self, 'all_bands_channel_selector'):
+            self.all_bands_channel_selector.set_current_channel(channel_idx)
         # Update all plots
         self.band_spikes.set_channel(channel_idx)
         self.all_bands_power.set_channel(channel_idx)

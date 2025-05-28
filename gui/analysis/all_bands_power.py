@@ -5,7 +5,7 @@ Widget for comparing power across all frequency bands
 
 import numpy as np
 import pyqtgraph as pg
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QCheckBox
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QCheckBox, QGroupBox
 from PyQt5.QtCore import pyqtSignal
 from utils.ui_helpers import setup_dark_plot
 
@@ -38,9 +38,40 @@ class AllBandsPower(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         
-        # Band toggles
-        toggles_layout = QHBoxLayout()
-        toggles_layout.addWidget(QLabel("Show:"))
+        # Create plot widget
+        self.plot_widget = pg.PlotWidget()
+        setup_dark_plot(self.plot_widget, "Time (seconds)", "Normalized Power")
+        
+        # Configure plot
+        self.plot_widget.showGrid(x=True, y=True, alpha=0.3)
+        self.plot_widget.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
+        
+        # Add legend
+        self.plot_widget.addLegend()
+        
+        layout.addWidget(self.plot_widget)
+        
+    def create_band_controls(self):
+        """Create band visibility controls group"""
+        band_group = QGroupBox("Band Visibility")
+        band_group.setStyleSheet("""
+            QGroupBox {
+                background-color: #2d2d2d;
+                border: 1px solid #3d3d3d;
+                border-radius: 5px;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                color: #ffffff;
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px;
+            }
+        """)
+        
+        band_layout = QVBoxLayout()
+        band_layout.setSpacing(8)
         
         self.band_checkboxes = {}
         band_colors = {
@@ -76,23 +107,10 @@ class AllBandsPower(QWidget):
             """)
             
             self.band_checkboxes[band_name] = checkbox
-            toggles_layout.addWidget(checkbox)
+            band_layout.addWidget(checkbox)
             
-        toggles_layout.addStretch()
-        layout.addLayout(toggles_layout)
-        
-        # Create plot widget
-        self.plot_widget = pg.PlotWidget()
-        setup_dark_plot(self.plot_widget, "Time (seconds)", "Normalized Power")
-        
-        # Configure plot
-        self.plot_widget.showGrid(x=True, y=True, alpha=0.3)
-        self.plot_widget.getPlotItem().getViewBox().setLimits(xMin=0, yMin=0)
-        
-        # Add legend
-        self.plot_widget.addLegend()
-        
-        layout.addWidget(self.plot_widget)
+        band_group.setLayout(band_layout)
+        return band_group
         
     def toggle_band_visibility(self, band_name, state):
         """Toggle visibility of a frequency band"""
