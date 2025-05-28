@@ -311,8 +311,38 @@ class TabbedAnalysisPanel(QWidget):
         
     def create_dfa_tab(self):
         """Create the DFA analysis tab"""
+        tab_widget = QWidget()
+        tab_layout = QHBoxLayout(tab_widget)
+        tab_layout.setContentsMargins(0, 0, 0, 0)
+        tab_layout.setSpacing(0)
+        
+        # Main content area
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(5, 5, 5, 5)
+        
+        # DFA analysis widget
         self.dfa_analysis = DFAAnalysis()
-        self.tab_widget.addTab(self.dfa_analysis, "📊 DFA Analysis")
+        content_layout.addWidget(self.dfa_analysis)
+        
+        # Create sidebar
+        self.dfa_sidebar = CollapsibleSidebar()
+        sidebar_layout = QVBoxLayout()
+        sidebar_layout.setContentsMargins(5, 5, 5, 5)
+        sidebar_layout.setSpacing(10)
+        
+        # Add DFA controls to sidebar
+        dfa_controls = self.dfa_analysis.create_controls()
+        sidebar_layout.addWidget(dfa_controls)
+        
+        sidebar_layout.addStretch()
+        self.dfa_sidebar.set_content_layout(sidebar_layout)
+        
+        # Add widgets to tab layout
+        tab_layout.addWidget(content_widget, stretch=1)
+        tab_layout.addWidget(self.dfa_sidebar)
+        
+        self.tab_widget.addTab(tab_widget, "📊 DFA")
         
     def setup_connections(self):
         """Setup signal connections between components"""

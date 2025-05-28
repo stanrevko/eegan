@@ -48,9 +48,14 @@ class DFAAnalysis(QWidget):
         
         layout.addWidget(self.plot_widget)
         
-        # Add controls
+    def create_controls(self):
+        """Create DFA controls for the sidebar"""
         controls_group = QGroupBox("DFA Controls")
         controls_layout = QVBoxLayout()
+        controls_layout.setSpacing(10)
+        
+        # Add spacer before controls
+        controls_layout.addSpacing(20)  # Add 20 pixels of space
         
         # Scale range controls
         scale_layout = QHBoxLayout()
@@ -74,10 +79,16 @@ class DFAAnalysis(QWidget):
         
         controls_layout.addLayout(scale_layout)
         
+        # Add spacer before analysis button
+        controls_layout.addSpacing(10)  # Add 10 pixels of space
+        
         # Analysis button
         self.analyze_button = QPushButton("Run DFA Analysis")
         self.analyze_button.clicked.connect(self.run_analysis)
         controls_layout.addWidget(self.analyze_button)
+        
+        # Add spacer before results
+        controls_layout.addSpacing(20)  # Add 20 pixels of space
         
         # Results display
         results_layout = QVBoxLayout()
@@ -96,7 +107,7 @@ class DFAAnalysis(QWidget):
         
         controls_layout.addLayout(results_layout)
         controls_group.setLayout(controls_layout)
-        layout.addWidget(controls_group)
+        return controls_group
         
     def set_analyzer(self, analyzer):
         """Set the EEG analyzer"""
@@ -112,6 +123,15 @@ class DFAAnalysis(QWidget):
         """Set analysis timeframe"""
         if self.analyzer and self.analyzer.processor:
             try:
+                # Limit maximum analysis time to 5 minutes
+                max_analysis_time = 300  # 5 minutes in seconds
+                if end_time - start_time > max_analysis_time:
+                    print(f"📊 DFA: Limiting analysis to {max_analysis_time} seconds for performance")
+                    # Center the analysis window around the middle of the selected range
+                    mid_time = (start_time + end_time) / 2
+                    start_time = mid_time - max_analysis_time / 2
+                    end_time = mid_time + max_analysis_time / 2
+                
                 data, _ = self.analyzer.processor.get_filtered_data(start_time, end_time)
                 if data is not None and len(data) > self.current_channel:
                     self.current_data = data[self.current_channel]
@@ -123,10 +143,14 @@ class DFAAnalysis(QWidget):
                     if self.max_scale_spin.value() > max_possible:
                         self.max_scale_spin.setValue(max_possible)
                 else:
+                    print("Error: No valid data available for the selected channel")
                     self.current_data = None
                     
             except Exception as e:
                 print(f"Error setting timeframe for DFA: {e}")
+                import traceback
+                traceback.print_exc()
+                self.current_data = None
                 
     def update_data(self):
         """Update current data from analyzer"""
@@ -135,7 +159,20 @@ class DFAAnalysis(QWidget):
                 # Get all available data for the current channel
                 data, _ = self.analyzer.processor.get_filtered_data()
                 if data is not None and len(data) > self.current_channel:
-                    self.current_data = data[self.current_channel]
+                    # Limit to 5 minutes of data for performance
+                    max_samples = int(5 * 60 * self.analyzer.processor.get_sampling_rate())
+                    channel_data = data[self.current_channel]
+                    
+                    if len(channel_data) > max_samples:
+                        print(f"📊 DFA: Limiting analysis to 5 minutes for performance")
+                        # Take data from the middle of the recording
+                        mid_point = len(channel_data) // 2
+                        start_idx = int(mid_point - max_samples // 2)
+                        end_idx = int(mid_point + max_samples // 2)
+                        self.current_data = channel_data[start_idx:end_idx]
+                    else:
+                        self.current_data = channel_data
+                        
                     self.sfreq = self.analyzer.processor.get_sampling_rate()
                     
                     # Update max scale based on data length
@@ -144,15 +181,19 @@ class DFAAnalysis(QWidget):
                     if self.max_scale_spin.value() > max_possible:
                         self.max_scale_spin.setValue(max_possible)
                 else:
+                    print("Error: No valid data available for the selected channel")
                     self.current_data = None
                     
             except Exception as e:
                 print(f"Error updating DFA data: {e}")
+                import traceback
+                traceback.print_exc()
                 self.current_data = None
                 
     def run_analysis(self):
         """Run DFA analysis on current data"""
         if self.current_data is None:
+            print("Error: No data available for analysis")
             return
             
         try:
@@ -161,10 +202,21 @@ class DFAAnalysis(QWidget):
             max_scale = self.max_scale_spin.value()
             n_scales = self.n_scales_spin.value()
             
+            # Validate parameters
+            if min_scale <= 0 or max_scale <= 0 or n_scales <= 0:
+                print("Error: Scale parameters must be positive")
+                return
+                
+            if min_scale >= max_scale:
+                print("Error: Min scale must be less than max scale")
+                return
+                
             # Calculate DFA
-            self.scales, self.fluctuations, self.alpha = self.calculate_dfa_direct(
-                min_scale, max_scale, n_scales
-            )
+            result = self.calculate_dfa_direct(min_scale, max_scale, n_scales)
+            if result is None:
+                return
+                
+            self.scales, self.fluctuations, self.alpha = result
             
             # Update plot
             self.update_plot()
@@ -172,24 +224,44 @@ class DFAAnalysis(QWidget):
             # Update results display
             self.update_results()
             
-            # Emit completion signal
-            self.analysis_completed.emit(self.alpha)
+            # Only emit completion signal if we have a valid alpha
+            if self.alpha is not None and not np.isnan(self.alpha):
+                self.analysis_completed.emit(self.alpha)
             
         except Exception as e:
             print(f"Error running DFA analysis: {e}")
+            import traceback
+            traceback.print_exc()
             
     def calculate_dfa_direct(self, min_scale, max_scale, n_scales):
         """Calculate DFA directly without threading"""
         if self.current_data is None:
-            return None, None, None
+            print("Error: No data available for analysis")
+            return None
             
         try:
+            # Validate input parameters
+            if min_scale <= 0 or max_scale <= 0 or n_scales <= 0:
+                print("Error: Scale parameters must be positive")
+                return None
+                
+            if min_scale >= max_scale:
+                print("Error: Min scale must be less than max scale")
+                return None
+                
+            # Ensure minimum scale is at least 4 samples
+            min_scale = max(4, min_scale)
+            
             # Generate logarithmically spaced scales
             scales = np.logspace(np.log10(min_scale), np.log10(max_scale), n_scales)
             scales = np.round(scales).astype(int)
             
             # Calculate fluctuations for each scale
             fluctuations = []
+            valid_scales = []
+            
+            # Pre-calculate cumulative sum for faster processing
+            cumsum = np.cumsum(self.current_data - np.mean(self.current_data))
             
             for scale in scales:
                 # Divide signal into non-overlapping segments
@@ -198,40 +270,59 @@ class DFAAnalysis(QWidget):
                     continue
                     
                 # Reshape data into segments
-                segments = self.current_data[:n_segments * scale].reshape(n_segments, scale)
+                segments = cumsum[:n_segments * scale].reshape(n_segments, scale)
                 
-                # Calculate local trends using linear regression
-                trends = np.zeros_like(segments)
-                for i, segment in enumerate(segments):
-                    x = np.arange(scale)
-                    reg = LinearRegression()
-                    reg.fit(x.reshape(-1, 1), segment)
-                    trends[i] = reg.predict(x.reshape(-1, 1))
+                # Calculate local trends using vectorized operations
+                x = np.arange(scale)
+                x_centered = x - np.mean(x)
+                x_centered_squared = np.sum(x_centered ** 2)
+                
+                # Calculate trends for all segments at once
+                y_centered = segments - np.mean(segments, axis=1, keepdims=True)
+                slope = np.sum(x_centered * y_centered, axis=1) / x_centered_squared
+                intercept = np.mean(segments, axis=1) - slope * np.mean(x)
+                
+                # Calculate trends using broadcasting
+                trends = slope[:, np.newaxis] * x + intercept[:, np.newaxis]
                 
                 # Detrend segments
                 detrended = segments - trends
                 
                 # Calculate root mean square fluctuation
                 rms = np.sqrt(np.mean(detrended ** 2, axis=1))
-                fluctuations.append(np.mean(rms))
+                mean_rms = np.mean(rms)
+                
+                # Only include valid fluctuations
+                if np.isfinite(mean_rms) and mean_rms > 0:
+                    fluctuations.append(mean_rms)
+                    valid_scales.append(scale)
+            
+            # Check if we have enough valid points for analysis
+            if len(valid_scales) < 2:
+                print("Error: Not enough valid fluctuation values for analysis")
+                return None
                 
             # Calculate scaling exponent (alpha) using linear regression in log-log space
-            if len(scales) > 2:
-                log_scales = np.log10(scales)
-                log_fluctuations = np.log10(fluctuations)
-                
-                # Fit line to log-log plot
-                reg = LinearRegression()
-                reg.fit(log_scales.reshape(-1, 1), log_fluctuations)
-                alpha = reg.coef_[0]
-            else:
-                alpha = np.nan
-                
-            return scales, np.array(fluctuations), alpha
+            log_scales = np.log10(valid_scales)
+            log_fluctuations = np.log10(fluctuations)
+            
+            # Verify that we have valid log values
+            if not np.all(np.isfinite(log_scales)) or not np.all(np.isfinite(log_fluctuations)):
+                print("Error: Invalid values in log calculations")
+                return None
+            
+            # Fit line to log-log plot
+            reg = LinearRegression()
+            reg.fit(log_scales.reshape(-1, 1), log_fluctuations)
+            alpha = reg.coef_[0]
+            
+            return np.array(valid_scales), np.array(fluctuations), alpha
             
         except Exception as e:
             print(f"Error calculating DFA: {e}")
-            return None, None, None
+            import traceback
+            traceback.print_exc()
+            return None
             
     def update_plot(self):
         """Update the DFA plot"""
