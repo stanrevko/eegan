@@ -6,6 +6,8 @@ A comprehensive Python-based application for electroencephalogram (EEG) data ana
 <img width="1726" height="778" alt="image" src="https://github.com/user-attachments/assets/59ed871a-b2e7-41bd-81c2-7891d249c0fd" />
 <img width="1726" height="778" alt="image" src="https://github.com/user-attachments/assets/8a5088fb-2f2d-4d70-aad5-0b271f3b9031" />
 <img width="1726" height="778" alt="image" src="https://github.com/user-attachments/assets/9528771a-8deb-47df-8f45-1701b123a12b" />
+<img width="1722" height="1001" alt="image" src="https://github.com/user-attachments/assets/76fe87b1-e550-468f-bbf7-61262ed6403e" />
+
 
 
 
