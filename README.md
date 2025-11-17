@@ -2,6 +2,14 @@
 
 A comprehensive Python-based application for electroencephalogram (EEG) data analysis with advanced visualization and real-time processing capabilities.
 
+<img width="1726" height="778" alt="image" src="https://github.com/user-attachments/assets/eff652b3-6480-4366-94d9-a6768b2ad766" />
+<img width="1726" height="778" alt="image" src="https://github.com/user-attachments/assets/59ed871a-b2e7-41bd-81c2-7891d249c0fd" />
+<img width="1726" height="778" alt="image" src="https://github.com/user-attachments/assets/8a5088fb-2f2d-4d70-aad5-0b271f3b9031" />
+<img width="1726" height="778" alt="image" src="https://github.com/user-attachments/assets/9528771a-8deb-47df-8f45-1701b123a12b" />
+
+
+
+
 ## ✨ Features
 
 ### 📊 Supported File Formats
